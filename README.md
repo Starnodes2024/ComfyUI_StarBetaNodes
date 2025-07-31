@@ -1,2 +1,2 @@
 # ComfyUI_StarBetaNodes
-This is a playground and test playground for coming nodes
+This is a test playground for upcoming nodes
