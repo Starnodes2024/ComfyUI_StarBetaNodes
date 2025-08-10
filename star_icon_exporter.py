@@ -3,6 +3,7 @@ from typing import List, Tuple
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 import folder_paths
+import torch
 
 
 def tensor_to_pil(img_tensor) -> Image.Image:
@@ -26,6 +27,15 @@ def tensor_to_pil(img_tensor) -> Image.Image:
     else:
         pil = Image.fromarray(np_img, mode='RGB').convert('RGBA')
     return pil
+
+
+def pil_to_tensor(img: Image.Image):
+    """Convert a PIL RGBA/RGB image to a ComfyUI IMAGE tensor [1,H,W,C] float32 0-1."""
+    if img.mode != 'RGBA':
+        img = img.convert('RGBA')
+    arr = np.asarray(img).astype(np.float32) / 255.0  # H W 4
+    t = torch.from_numpy(arr)[None, ...]  # 1 H W 4
+    return t
 
 
 def parse_extra_sizes(extra: str) -> List[int]:
@@ -57,8 +67,8 @@ class StarIconExporter:
     """
 
     CATEGORY = "⭐StarNodes/Image And Latent"
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("ico_path",)
+    RETURN_TYPES = ("STRING", "IMAGE")
+    RETURN_NAMES = ("ico_path", "preview_batch")
     FUNCTION = "export_icons"
     OUTPUT_NODE = True
 
@@ -88,6 +98,7 @@ class StarIconExporter:
                 "preset": (["standard", "windows", "android", "ios", "web_favicon"], {"default": "standard", "tooltip": "Preset size packs to include."}),
                 "naming_style": (["increment", "underscore_increment", "timestamp"], {"default": "increment", "tooltip": "How to avoid overwriting existing files."}),
                 "export_web_favicons": ("BOOLEAN", {"default": False, "tooltip": "Also export common web favicon PNG sizes."}),
+                "preview_size": ("INT", {"default": 256, "min": 8, "max": 1024, "tooltip": "Preview size to show in node (closest available will be chosen)."}),
             },
         }
 
@@ -108,6 +119,15 @@ class StarIconExporter:
             "web_favicon": [16, 32, 48, 96, 180, 192, 512],
         }
         return presets.get(preset, [16, 32, 48, 128, 256])
+
+    @staticmethod
+    def _pick_preview_size(available: List[int], desired: int) -> int:
+        if not available:
+            return desired
+        if desired in available:
+            return desired
+        # choose closest size
+        return min(available, key=lambda s: abs(s - desired))
 
     @staticmethod
     def _ensure_subfolder(base_dir: str, subfolder: str) -> str:
@@ -135,18 +155,21 @@ class StarIconExporter:
         base.save(path, format="ICO", sizes=[(s, s) for s in sizes])
 
     @staticmethod
-    def _unique_base_name(ico_directory: str, png_directory: str, base_name: str, sizes: List[int]) -> str:
+    def _unique_base_name(ico_directory: str, png_directory: str, base_name: str, sizes: List[int], style: str = "increment") -> str:
         """
         Find a non-conflicting base name across ICO dir and PNG dir.
         Rules: icon.ico, icon2.ico, icon3.ico ...
         Also checks PNGs like icon_16.png, icon2_16.png, etc. in the png subfolder.
         """
-        suffix_num = 0  # 0 => no suffix, then 2,3,...
+        suffix_num = 0  # 0 => no suffix, then 2,3,... (or _2,_3 for underscore_increment)
         while True:
             if suffix_num == 0:
                 candidate = base_name
             else:
-                candidate = f"{base_name}{suffix_num}"
+                if style == "underscore_increment":
+                    candidate = f"{base_name}_{suffix_num}"
+                else:
+                    candidate = f"{base_name}{suffix_num}"
             ico_exists = os.path.exists(os.path.join(ico_directory, f"{candidate}.ico"))
             png_exists = any(
                 os.path.exists(os.path.join(png_directory, f"{candidate}_{s}.png")) for s in sizes
@@ -271,7 +294,99 @@ class StarIconExporter:
             draw.rectangle((px//2, px//2, size - 1 - px//2, size - 1 - px//2), outline=color, width=px)
         return Image.alpha_composite(base, stroke_layer)
 
-    def export_icons(self, images, save_name: str = "icon", quantize_to_256: bool = True, extra_sizes: str = "", subfolder: str = "Icons", shape: str = "none", rounded_radius_percent: int = 20, background_color: str = "#FFFFFF", padding_percent: int = 0, auto_trim: bool = True, stroke_enabled: bool = False, stroke_color: str = "#000000", stroke_width_percent: int = 6, shadow_enabled: bool = False, shadow_color: str = "#000000", shadow_offset_px: int = 2, shadow_blur_px: int = 4, preset: str = "standard", naming_style: str = "increment", export_web_favicons: bool = False):
+    @staticmethod
+    def _draw_size_label(img: Image.Image, text: str) -> Image.Image:
+        # Draw a semi-transparent dark bar and centered white text at bottom
+        if img.mode != "RGBA":
+            img = img.convert("RGBA")
+        w, h = img.size
+        # slightly taller bar for bigger text
+        bar_h = max(14, int(h * 0.18))
+        overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(overlay)
+        # bar
+        draw.rectangle((0, h - bar_h, w, h), fill=(0, 0, 0, 170))
+        # text
+        used_default_font = False
+        try:
+            from PIL import ImageFont
+            font = None
+            target_px = max(14, int(bar_h * 0.80))
+            # try multiple bold TTF locations
+            candidates = [
+                "DejaVuSans-Bold.ttf",
+                # Windows common fonts
+                os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts", "arialbd.ttf"),
+                os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts", "segoeuib.ttf"),
+                os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts", "seguisb.ttf"),
+                # Linux common
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+                "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
+            ]
+            try:
+                import PIL
+                pil_dir = os.path.dirname(PIL.__file__)
+                candidates.append(os.path.join(pil_dir, "fonts", "DejaVuSans-Bold.ttf"))
+            except Exception:
+                pass
+            for fp in candidates:
+                try:
+                    if fp and os.path.exists(fp) or (isinstance(fp, str) and os.path.basename(fp) == fp):
+                        font = ImageFont.truetype(fp, target_px)
+                        break
+                except Exception:
+                    continue
+            if font is None:
+                font = ImageFont.load_default()
+                used_default_font = True
+        except Exception:
+            font = None
+            used_default_font = True
+        # Pillow >= 8 provides textbbox; textsize may not exist in newer versions
+        try:
+            bbox = draw.textbbox((0, 0), text, font=font)
+            tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        except Exception:
+            # Fallback to font.getsize if available, else approximate
+            try:
+                tw, th = font.getsize(text) if font else (len(text) * 6, 11)
+            except Exception:
+                tw, th = (len(text) * 6, 11)
+        tx = (w - tw) // 2
+        ty = h - bar_h + (bar_h - th) // 2
+        # If only bitmap default font is available, upscale a text tile for larger appearance
+        if used_default_font and font is not None:
+            # render small text onto a tiny tile, then scale up to match ~target_px height
+            tmp_w = max(1, tw)
+            tmp_h = max(1, th)
+            tile = Image.new("RGBA", (tmp_w+4, tmp_h+4), (0, 0, 0, 0))
+            tdraw = ImageDraw.Draw(tile)
+            # faux bold outline
+            for dx, dy in ((-1,0),(1,0),(0,-1),(0,1),(-1,-1),(1,1),(-1,1),(1,-1)):
+                tdraw.text((2+dx, 2+dy), text, fill=(0,0,0,220), font=font)
+            tdraw.text((2, 2), text, fill=(255,255,255,255), font=font)
+            # compute scale
+            target_h = max(12, int(bar_h * 0.7))
+            scale = max(1, int(round(target_h / tile.size[1])))
+            scaled = tile.resize((tile.size[0]*scale, tile.size[1]*scale), resample=Image.LANCZOS)
+            # paste centered
+            sx, sy = scaled.size
+            cx = (w - sx) // 2
+            cy = h - bar_h + (bar_h - sy) // 2
+            overlay.alpha_composite(scaled, (cx, cy))
+        else:
+            # draw bold with stroke if available, else multi-pass faux bold
+            try:
+                sw = 3 if max(w, h) >= 200 else 2
+                draw.text((tx, ty), text, fill=(255, 255, 255, 255), font=font, stroke_width=sw, stroke_fill=(0, 0, 0, 220))
+            except TypeError:
+                for dx, dy in ((-1,0),(1,0),(0,-1),(0,1),(-1,-1),(1,1),(-1,1),(1,-1)):
+                    draw.text((tx+dx, ty+dy), text, fill=(0, 0, 0, 200), font=font)
+                draw.text((tx, ty), text, fill=(255, 255, 255, 255), font=font)
+        return Image.alpha_composite(img, overlay)
+
+    def export_icons(self, images, save_name: str = "icon", quantize_to_256: bool = True, extra_sizes: str = "", subfolder: str = "Icons", shape: str = "none", rounded_radius_percent: int = 20, background_color: str = "#FFFFFF", padding_percent: int = 0, auto_trim: bool = True, stroke_enabled: bool = False, stroke_color: str = "#000000", stroke_width_percent: int = 6, shadow_enabled: bool = False, shadow_color: str = "#000000", shadow_offset_px: int = 2, shadow_blur_px: int = 4, preset: str = "standard", naming_style: str = "increment", export_web_favicons: bool = False, preview_size: int = 256):
         output_dir = folder_paths.get_output_directory()
         out_dir = self._ensure_subfolder(output_dir, subfolder)
         # If a preset is selected, add a preset subfolder for clearer organization
@@ -288,7 +403,7 @@ class StarIconExporter:
         sizes = sorted(list({*self._preset_sizes(preset), *self._build_sizes(extra_sizes)}))
 
         # Choose a unique base name to avoid overwriting existing files
-        base_name = self._unique_base_name(out_dir, png_dir, save_name, sizes) if naming_style in ("increment", "underscore_increment") else self._timestamp_base_name(out_dir, save_name)
+        base_name = self._unique_base_name(out_dir, png_dir, save_name, sizes, naming_style) if naming_style in ("increment", "underscore_increment") else self._timestamp_base_name(out_dir, save_name)
 
         # Persist flags for render helpers
         self._padding_percent = padding_percent
@@ -296,6 +411,7 @@ class StarIconExporter:
 
         # Save PNGs per size
         saved_pngs: List[Tuple[str, int]] = []
+        shaped_by_size: dict[int, Image.Image] = {}
         for s in sizes:
             png_path = os.path.join(png_dir, f"{base_name}_{s}.png")
             shaped = self._render_icon(pil_rgba, s, shape, rounded_radius_percent, background_color)
@@ -306,6 +422,8 @@ class StarIconExporter:
             # Apply stroke on top if requested
             if stroke_enabled and shape != "none":
                 shaped = self._apply_stroke(shaped, shape, s, rounded_radius_percent, self._parse_hex_color(stroke_color), stroke_width_percent)
+            # keep for preview batch assembly
+            shaped_by_size[s] = shaped
             # Preserve transparency for circle/rounded by disabling quantization for PNGs
             quantize_png = quantize_to_256 and shape not in ("circle", "rounded")
             self._save_png(shaped, png_path, s, quantize_png)
@@ -338,22 +456,43 @@ class StarIconExporter:
                 quantize_png = quantize_to_256 and shape not in ("circle", "rounded")
                 self._save_png(shaped, png_path, s, quantize_png)
 
-        # Build UI results for PNG previews
+        # Build a single UI preview for the chosen preview size
         ui_results = []
-        # Report PNGs relative to the selected subfolder, include preset and 'png' levels
+        # compute closest available preview size
+        preview_s = self._pick_preview_size(sizes, int(preview_size))
+        preview_file = os.path.join(png_dir, f"{base_name}_{preview_s}.png")
+        # Report subfolder path for preview
         if subfolder:
             png_subfolder = os.path.join(subfolder, preset_name) if preset_name and preset_name != "standard" else subfolder
             png_subfolder = os.path.join(png_subfolder, "png")
         else:
             png_subfolder = os.path.join(preset_name, "png") if preset_name and preset_name != "standard" else "png"
-        for png_path, _ in saved_pngs:
-            ui_results.append({
-                "filename": os.path.basename(png_path),
-                "subfolder": png_subfolder,
-                "type": "output"
-            })
+        ui_results.append({
+            "filename": os.path.basename(preview_file),
+            "subfolder": png_subfolder,
+            "type": "output"
+        })
 
-        return {"ui": {"images": ui_results}, "result": (ico_path,)}
+        # Build preview batch: center each shaped icon on largest canvas and draw size label
+        largest = max(sizes)
+        batch_tensors = []
+        for s in sizes:
+            shaped_img = shaped_by_size.get(s)
+            if shaped_img is None:
+                shaped_img = self._render_icon(pil_rgba, s, shape, rounded_radius_percent, background_color)
+            canvas = Image.new("RGBA", (largest, largest), (0, 0, 0, 0))
+            ox = (largest - s) // 2
+            oy = (largest - s) // 2
+            canvas.paste(shaped_img, (ox, oy), shaped_img)
+            labeled = self._draw_size_label(canvas, f"{s}x{s}")
+            batch_tensors.append(pil_to_tensor(labeled))
+        # concatenate into batch [B,H,W,C]
+        if len(batch_tensors) > 1:
+            preview_batch = torch.cat(batch_tensors, dim=0)
+        else:
+            preview_batch = batch_tensors[0]
+
+        return {"ui": {"images": ui_results}, "result": (ico_path, preview_batch)}
 
     @staticmethod
     def _timestamp_base_name(directory: str, base_name: str) -> str:
