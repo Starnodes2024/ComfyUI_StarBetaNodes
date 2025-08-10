@@ -135,11 +135,11 @@ class StarIconExporter:
         base.save(path, format="ICO", sizes=[(s, s) for s in sizes])
 
     @staticmethod
-    def _unique_base_name(directory: str, base_name: str, sizes: List[int]) -> str:
+    def _unique_base_name(ico_directory: str, png_directory: str, base_name: str, sizes: List[int]) -> str:
         """
-        Find a non-conflicting base name in directory.
+        Find a non-conflicting base name across ICO dir and PNG dir.
         Rules: icon.ico, icon2.ico, icon3.ico ...
-        Also checks PNGs like icon_16.png, icon2_16.png, etc.
+        Also checks PNGs like icon_16.png, icon2_16.png, etc. in the png subfolder.
         """
         suffix_num = 0  # 0 => no suffix, then 2,3,...
         while True:
@@ -147,9 +147,9 @@ class StarIconExporter:
                 candidate = base_name
             else:
                 candidate = f"{base_name}{suffix_num}"
-            ico_exists = os.path.exists(os.path.join(directory, f"{candidate}.ico"))
+            ico_exists = os.path.exists(os.path.join(ico_directory, f"{candidate}.ico"))
             png_exists = any(
-                os.path.exists(os.path.join(directory, f"{candidate}_{s}.png")) for s in sizes
+                os.path.exists(os.path.join(png_directory, f"{candidate}_{s}.png")) for s in sizes
             )
             if not ico_exists and not png_exists:
                 return candidate
@@ -274,6 +274,12 @@ class StarIconExporter:
     def export_icons(self, images, save_name: str = "icon", quantize_to_256: bool = True, extra_sizes: str = "", subfolder: str = "Icons", shape: str = "none", rounded_radius_percent: int = 20, background_color: str = "#FFFFFF", padding_percent: int = 0, auto_trim: bool = True, stroke_enabled: bool = False, stroke_color: str = "#000000", stroke_width_percent: int = 6, shadow_enabled: bool = False, shadow_color: str = "#000000", shadow_offset_px: int = 2, shadow_blur_px: int = 4, preset: str = "standard", naming_style: str = "increment", export_web_favicons: bool = False):
         output_dir = folder_paths.get_output_directory()
         out_dir = self._ensure_subfolder(output_dir, subfolder)
+        # If a preset is selected, add a preset subfolder for clearer organization
+        preset_name = (preset or "standard").strip()
+        if preset_name and preset_name != "standard":
+            out_dir = self._ensure_subfolder(out_dir, preset_name)
+        png_dir = os.path.join(out_dir, "png")
+        os.makedirs(png_dir, exist_ok=True)
 
         # Convert tensor to base RGBA image
         pil_rgba = tensor_to_pil(images)
@@ -282,7 +288,7 @@ class StarIconExporter:
         sizes = sorted(list({*self._preset_sizes(preset), *self._build_sizes(extra_sizes)}))
 
         # Choose a unique base name to avoid overwriting existing files
-        base_name = self._unique_base_name(out_dir, save_name, sizes) if naming_style in ("increment", "underscore_increment") else self._timestamp_base_name(out_dir, save_name)
+        base_name = self._unique_base_name(out_dir, png_dir, save_name, sizes) if naming_style in ("increment", "underscore_increment") else self._timestamp_base_name(out_dir, save_name)
 
         # Persist flags for render helpers
         self._padding_percent = padding_percent
@@ -291,7 +297,7 @@ class StarIconExporter:
         # Save PNGs per size
         saved_pngs: List[Tuple[str, int]] = []
         for s in sizes:
-            png_path = os.path.join(out_dir, f"{base_name}_{s}.png")
+            png_path = os.path.join(png_dir, f"{base_name}_{s}.png")
             shaped = self._render_icon(pil_rgba, s, shape, rounded_radius_percent, background_color)
             # Apply shadow beneath if requested
             if shadow_enabled and shape != "none":
@@ -322,7 +328,7 @@ class StarIconExporter:
             for s in web_sizes:
                 if s in sizes:
                     continue
-                png_path = os.path.join(out_dir, f"{base_name}_{s}.png")
+                png_path = os.path.join(png_dir, f"{base_name}_{s}.png")
                 shaped = self._render_icon(pil_rgba, s, shape, rounded_radius_percent, background_color)
                 if shadow_enabled and shape != "none":
                     mask = self._shape_mask(s, shape, rounded_radius_percent)
@@ -334,10 +340,16 @@ class StarIconExporter:
 
         # Build UI results for PNG previews
         ui_results = []
+        # Report PNGs relative to the selected subfolder, include preset and 'png' levels
+        if subfolder:
+            png_subfolder = os.path.join(subfolder, preset_name) if preset_name and preset_name != "standard" else subfolder
+            png_subfolder = os.path.join(png_subfolder, "png")
+        else:
+            png_subfolder = os.path.join(preset_name, "png") if preset_name and preset_name != "standard" else "png"
         for png_path, _ in saved_pngs:
             ui_results.append({
                 "filename": os.path.basename(png_path),
-                "subfolder": subfolder if subfolder else "",
+                "subfolder": png_subfolder,
                 "type": "output"
             })
 
