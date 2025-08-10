@@ -1,7 +1,7 @@
 import os
 from typing import List, Tuple
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFilter
 import folder_paths
 
 
@@ -72,7 +72,22 @@ class StarIconExporter:
             "optional": {
                 "quantize_to_256": ("BOOLEAN", {"default": True, "tooltip": "Quantize to 256 colors for smaller files."}),
                 "extra_sizes": ("STRING", {"default": "", "tooltip": "Comma-separated extra sizes, e.g. 64,512"}),
-                "subfolder": ("STRING", {"default": "", "tooltip": "Optional output subfolder under ComfyUI output."}),
+                "subfolder": ("STRING", {"default": "Icons", "tooltip": "Optional output subfolder under ComfyUI output."}),
+                "shape": (["none", "square", "circle", "rounded"], {"default": "none", "tooltip": "Apply icon shape. 'square' fills background, 'circle'/'rounded' keep transparent background."}),
+                "rounded_radius_percent": ("INT", {"default": 20, "min": 0, "max": 50, "tooltip": "Corner radius as percent of icon size (for rounded)."}),
+                "background_color": ("STRING", {"default": "#FFFFFF", "tooltip": "HEX color for square background (e.g. #000000)."}),
+                "padding_percent": ("INT", {"default": 0, "min": 0, "max": 40, "tooltip": "Uniform padding as percent of icon size."}),
+                "auto_trim": ("BOOLEAN", {"default": True, "tooltip": "Auto-trim transparent edges before shaping."}),
+                "stroke_enabled": ("BOOLEAN", {"default": False, "tooltip": "Draw an outline around the shape."}),
+                "stroke_color": ("STRING", {"default": "#000000", "tooltip": "Outline color (HEX)."}),
+                "stroke_width_percent": ("INT", {"default": 6, "min": 0, "max": 20, "tooltip": "Outline width as percent of icon size."}),
+                "shadow_enabled": ("BOOLEAN", {"default": False, "tooltip": "Add a drop shadow behind the shape."}),
+                "shadow_color": ("STRING", {"default": "#000000", "tooltip": "Shadow color (HEX)."}),
+                "shadow_offset_px": ("INT", {"default": 2, "min": -20, "max": 20, "tooltip": "Shadow offset in pixels."}),
+                "shadow_blur_px": ("INT", {"default": 4, "min": 0, "max": 32, "tooltip": "Shadow blur radius in pixels."}),
+                "preset": (["standard", "windows", "android", "ios", "web_favicon"], {"default": "standard", "tooltip": "Preset size packs to include."}),
+                "naming_style": (["increment", "underscore_increment", "timestamp"], {"default": "increment", "tooltip": "How to avoid overwriting existing files."}),
+                "export_web_favicons": ("BOOLEAN", {"default": False, "tooltip": "Also export common web favicon PNG sizes."}),
             },
         }
 
@@ -82,6 +97,17 @@ class StarIconExporter:
         extra = parse_extra_sizes(extra_sizes)
         sizes = sorted(list({*base, *extra}))
         return sizes
+
+    @staticmethod
+    def _preset_sizes(preset: str) -> List[int]:
+        presets = {
+            "standard": [16, 32, 48, 128, 256],
+            "windows": [16, 24, 32, 48, 64, 128, 256],
+            "android": [48, 72, 96, 144, 192, 512],
+            "ios": [60, 76, 120, 152, 167, 180, 1024],
+            "web_favicon": [16, 32, 48, 96, 180, 192, 512],
+        }
+        return presets.get(preset, [16, 32, 48, 128, 256])
 
     @staticmethod
     def _ensure_subfolder(base_dir: str, subfolder: str) -> str:
@@ -108,26 +134,203 @@ class StarIconExporter:
         # Pillow will generate downscaled sizes internally when passing sizes
         base.save(path, format="ICO", sizes=[(s, s) for s in sizes])
 
-    def export_icons(self, images, save_name: str = "icon", quantize_to_256: bool = True, extra_sizes: str = "", subfolder: str = ""):
+    @staticmethod
+    def _unique_base_name(directory: str, base_name: str, sizes: List[int]) -> str:
+        """
+        Find a non-conflicting base name in directory.
+        Rules: icon.ico, icon2.ico, icon3.ico ...
+        Also checks PNGs like icon_16.png, icon2_16.png, etc.
+        """
+        suffix_num = 0  # 0 => no suffix, then 2,3,...
+        while True:
+            if suffix_num == 0:
+                candidate = base_name
+            else:
+                candidate = f"{base_name}{suffix_num}"
+            ico_exists = os.path.exists(os.path.join(directory, f"{candidate}.ico"))
+            png_exists = any(
+                os.path.exists(os.path.join(directory, f"{candidate}_{s}.png")) for s in sizes
+            )
+            if not ico_exists and not png_exists:
+                return candidate
+            # increment: skip 1 to match icon, icon2, icon3
+            suffix_num = 2 if suffix_num == 0 else suffix_num + 1
+
+    @staticmethod
+    def _center_square(img: Image.Image) -> Image.Image:
+        w, h = img.size
+        side = min(w, h)
+        left = (w - side) // 2
+        top = (h - side) // 2
+        return img.crop((left, top, left + side, top + side))
+
+    @staticmethod
+    def _parse_hex_color(hex_str: str) -> Tuple[int, int, int, int]:
+        s = (hex_str or "").strip()
+        if s.startswith('#'):
+            s = s[1:]
+        if len(s) == 3:
+            s = ''.join(ch*2 for ch in s)
+        if len(s) != 6:
+            return (255, 255, 255, 255)
+        try:
+            r = int(s[0:2], 16)
+            g = int(s[2:4], 16)
+            b = int(s[4:6], 16)
+            return (r, g, b, 255)
+        except ValueError:
+            return (255, 255, 255, 255)
+
+    @staticmethod
+    def _shape_mask(size: int, shape: str, rounded_radius_percent: int) -> Image.Image:
+        mask = Image.new("L", (size, size), 0)
+        draw = ImageDraw.Draw(mask)
+        if shape == "circle":
+            draw.ellipse((0, 0, size - 1, size - 1), fill=255)
+        elif shape == "rounded":
+            r = max(0, min(50, int(rounded_radius_percent)))
+            rad = int(size * r / 100)
+            # rounded rectangle
+            draw.rounded_rectangle((0, 0, size - 1, size - 1), radius=rad, fill=255)
+        else:
+            # full square
+            draw.rectangle((0, 0, size - 1, size - 1), fill=255)
+        return mask
+
+    def _render_icon(self, base_rgba: Image.Image, size: int, shape: str, rounded_radius_percent: int, background_color: str) -> Image.Image:
+        # optional auto-trim transparent bounds to keep content centered and tight
+        src = base_rgba
+        if hasattr(self, "_auto_trim_flag") and self._auto_trim_flag:
+            src = self._auto_trim_rgba(src)
+        # prepare square crop then resize
+        img = self._center_square(src)
+        # apply padding by scaling down
+        pad = max(0, min(40, int(getattr(self, "_padding_percent", 0))))
+        if pad > 0:
+            inner = int(round(size * (100 - 2 * pad) / 100))
+            inner = max(1, min(size, inner))
+            img = img.resize((inner, inner), Image.LANCZOS)
+            canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+            ox = (size - inner) // 2
+            oy = (size - inner) // 2
+            canvas.paste(img, (ox, oy))
+            img = canvas
+        else:
+            img = img.resize((size, size), Image.LANCZOS)
+        if shape == "none":
+            return img
+        if shape == "square":
+            # composite onto solid background to remove transparency
+            bg = Image.new("RGBA", (size, size), self._parse_hex_color(background_color))
+            bg.paste(img, (0, 0), img)
+            return bg
+        # circle or rounded: create transparency outside
+        mask = self._shape_mask(size, shape, rounded_radius_percent)
+        out = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        out.paste(img, (0, 0), mask)
+        return out
+
+    @staticmethod
+    def _auto_trim_rgba(img: Image.Image) -> Image.Image:
+        if img.mode != "RGBA":
+            img = img.convert("RGBA")
+        bbox = img.split()[3].point(lambda a: 255 if a > 0 else 0).getbbox()
+        if bbox:
+            return img.crop(bbox)
+        return img
+
+    @staticmethod
+    def _apply_shadow(base: Image.Image, shape_mask: Image.Image, color: Tuple[int, int, int, int], offset: Tuple[int, int], blur: int) -> Image.Image:
+        w, h = base.size
+        shadow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        # create colored shadow from mask
+        sh_mask = shape_mask.copy()
+        if blur > 0:
+            sh_mask = sh_mask.filter(ImageFilter.GaussianBlur(radius=blur))
+        sh_layer = Image.new("RGBA", (w, h), color)
+        shadow.paste(sh_layer, offset, sh_mask)
+        out = Image.alpha_composite(shadow, base)
+        return out
+
+    @staticmethod
+    def _apply_stroke(base: Image.Image, shape: str, size: int, rounded_radius_percent: int, color: Tuple[int, int, int, int], width_percent: int) -> Image.Image:
+        w = max(0, min(20, int(width_percent)))
+        px = max(1, int(size * w / 100)) if w > 0 else 0
+        if px == 0:
+            return base
+        stroke_layer = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(stroke_layer)
+        if shape == "circle":
+            draw.ellipse((px//2, px//2, size - 1 - px//2, size - 1 - px//2), outline=color, width=px)
+        elif shape == "rounded":
+            r = max(0, min(50, int(rounded_radius_percent)))
+            rad = int(size * r / 100)
+            draw.rounded_rectangle((px//2, px//2, size - 1 - px//2, size - 1 - px//2), radius=rad, outline=color, width=px)
+        else:
+            # square/none
+            draw.rectangle((px//2, px//2, size - 1 - px//2, size - 1 - px//2), outline=color, width=px)
+        return Image.alpha_composite(base, stroke_layer)
+
+    def export_icons(self, images, save_name: str = "icon", quantize_to_256: bool = True, extra_sizes: str = "", subfolder: str = "Icons", shape: str = "none", rounded_radius_percent: int = 20, background_color: str = "#FFFFFF", padding_percent: int = 0, auto_trim: bool = True, stroke_enabled: bool = False, stroke_color: str = "#000000", stroke_width_percent: int = 6, shadow_enabled: bool = False, shadow_color: str = "#000000", shadow_offset_px: int = 2, shadow_blur_px: int = 4, preset: str = "standard", naming_style: str = "increment", export_web_favicons: bool = False):
         output_dir = folder_paths.get_output_directory()
         out_dir = self._ensure_subfolder(output_dir, subfolder)
 
         # Convert tensor to base RGBA image
         pil_rgba = tensor_to_pil(images)
 
-        # Build sizes list
-        sizes = self._build_sizes(extra_sizes)
+        # Build sizes list from preset + custom extras
+        sizes = sorted(list({*self._preset_sizes(preset), *self._build_sizes(extra_sizes)}))
+
+        # Choose a unique base name to avoid overwriting existing files
+        base_name = self._unique_base_name(out_dir, save_name, sizes) if naming_style in ("increment", "underscore_increment") else self._timestamp_base_name(out_dir, save_name)
+
+        # Persist flags for render helpers
+        self._padding_percent = padding_percent
+        self._auto_trim_flag = bool(auto_trim)
 
         # Save PNGs per size
         saved_pngs: List[Tuple[str, int]] = []
         for s in sizes:
-            png_path = os.path.join(out_dir, f"{save_name}_{s}.png")
-            self._save_png(pil_rgba, png_path, s, quantize_to_256)
+            png_path = os.path.join(out_dir, f"{base_name}_{s}.png")
+            shaped = self._render_icon(pil_rgba, s, shape, rounded_radius_percent, background_color)
+            # Apply shadow beneath if requested
+            if shadow_enabled and shape != "none":
+                mask = self._shape_mask(s, shape, rounded_radius_percent)
+                shaped = self._apply_shadow(shaped, mask, self._parse_hex_color(shadow_color), (shadow_offset_px, shadow_offset_px), max(0, int(shadow_blur_px)))
+            # Apply stroke on top if requested
+            if stroke_enabled and shape != "none":
+                shaped = self._apply_stroke(shaped, shape, s, rounded_radius_percent, self._parse_hex_color(stroke_color), stroke_width_percent)
+            # Preserve transparency for circle/rounded by disabling quantization for PNGs
+            quantize_png = quantize_to_256 and shape not in ("circle", "rounded")
+            self._save_png(shaped, png_path, s, quantize_png)
             saved_pngs.append((png_path, s))
 
-        # Save ICO with all sizes
-        ico_path = os.path.join(out_dir, f"{save_name}.ico")
-        self._save_ico(pil_rgba, ico_path, sizes, quantize_to_256)
+        # Save ICO with all sizes using largest shaped image as base
+        ico_path = os.path.join(out_dir, f"{base_name}.ico")
+        largest = max(sizes)
+        shaped_largest = self._render_icon(pil_rgba, largest, shape, rounded_radius_percent, background_color)
+        if shadow_enabled and shape != "none":
+            mask_l = self._shape_mask(largest, shape, rounded_radius_percent)
+            shaped_largest = self._apply_shadow(shaped_largest, mask_l, self._parse_hex_color(shadow_color), (shadow_offset_px, shadow_offset_px), max(0, int(shadow_blur_px)))
+        if stroke_enabled and shape != "none":
+            shaped_largest = self._apply_stroke(shaped_largest, shape, largest, rounded_radius_percent, self._parse_hex_color(stroke_color), stroke_width_percent)
+        self._save_ico(shaped_largest, ico_path, sizes, quantize_to_256)
+
+        # Optional: export web favicon PNG set regardless of preset
+        if export_web_favicons:
+            web_sizes = [16, 32, 48, 96, 180, 192, 512]
+            for s in web_sizes:
+                if s in sizes:
+                    continue
+                png_path = os.path.join(out_dir, f"{base_name}_{s}.png")
+                shaped = self._render_icon(pil_rgba, s, shape, rounded_radius_percent, background_color)
+                if shadow_enabled and shape != "none":
+                    mask = self._shape_mask(s, shape, rounded_radius_percent)
+                    shaped = self._apply_shadow(shaped, mask, self._parse_hex_color(shadow_color), (shadow_offset_px, shadow_offset_px), max(0, int(shadow_blur_px)))
+                if stroke_enabled and shape != "none":
+                    shaped = self._apply_stroke(shaped, shape, s, rounded_radius_percent, self._parse_hex_color(stroke_color), stroke_width_percent)
+                quantize_png = quantize_to_256 and shape not in ("circle", "rounded")
+                self._save_png(shaped, png_path, s, quantize_png)
 
         # Build UI results for PNG previews
         ui_results = []
@@ -139,6 +342,18 @@ class StarIconExporter:
             })
 
         return {"ui": {"images": ui_results}, "result": (ico_path,)}
+
+    @staticmethod
+    def _timestamp_base_name(directory: str, base_name: str) -> str:
+        import time
+        ts = time.strftime("%Y%m%d_%H%M%S")
+        candidate = f"{base_name}_{ts}"
+        # Ensure no conflicts
+        idx = 2
+        while os.path.exists(os.path.join(directory, f"{candidate}.ico")):
+            candidate = f"{base_name}_{ts}_{idx}"
+            idx += 1
+        return candidate
 
 
 NODE_CLASS_MAPPINGS = {
