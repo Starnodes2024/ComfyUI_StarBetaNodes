@@ -1,23 +1,27 @@
 # ⭐ Star Beta Nodes for ComfyUI
 
-Welcome to **Star Beta Nodes** - a collection of experimental custom nodes for ComfyUI designed for beta testing and feedback. These nodes provide enhanced functionality for image processing, video handling, and workflow automation.
+Welcome to **Star Beta Nodes** – a staging ground for experimental custom nodes for ComfyUI. Most beta nodes have now been released to the main `ComfyUI_StarNodes` repository. This beta repo currently contains only the new ratio helper node described below.
 
 ## 🚀 Available Nodes
 
-### Video Processing
-- **⭐ Star Frame From Video** (`StarFrameFromVideo`)
-  Extracts a specific frame from a batch of images (e.g., from video loaders). Choose between first frame, last frame, or a specific frame number for precise control over video frame extraction.
-
-### Image Loading & Management
-- **⭐ Star Image Loader 1by1** (`StarImageLoader1by1`)
-  Loads images sequentially from a folder, one image per workflow run. Features persistent state between runs, automatic counter reset, subfolder support, sorting options, and progress tracking.
-
-- **⭐ Star Random Image Loader** (`StarRandomImageLoader`)
-  Loads a random image from a specified folder. Supports subfolder inclusion and optional seed-based randomization for reproducible results.
-
-### Image Saving
-- **⭐ Star Save Panorama JPEG** (`StarSavePanoramaJPEG`)
-  Saves images as JPEG with embedded XMP metadata for 360° panoramas. Supports both cylindrical and equirectangular projection types for proper panorama viewing applications.
+### Image Ratios
+- **⭐ Star Qwen Image Ratio** (`StarQwenImageRatio`)
+  Dropdown-driven aspect ratio selector that outputs:
+  - An empty SD3 latent sized for the selected ratio (tensor in dict: `{ "samples": torch.zeros([batch_size, 4, H//8, W//8]) }`)
+  - Width and height integers
+  Supported ratios:
+  - `1:1` → 1328 × 1328
+  - `16:9` → 1664 × 928
+  - `9:16` → 928 × 1664
+  - `4:3` → 1472 × 1104
+  - `3:4` → 1104 × 1472
+  - `3:2` → 1584 × 1056
+  - `2:3` → 1056 × 1584
+  - `5:7` → 1120 × 1568
+  - `7:5` → 1568 × 1120
+  Inputs:
+  - `batch_size` (INT, default 1): latent batch dimension
+  - `custom_width`, `custom_height` (INT): used when selecting "Free Ratio (custom)", both enforced to be divisible by 16
 
 ## 📦 Installation
 
@@ -43,29 +47,19 @@ Welcome to **Star Beta Nodes** - a collection of experimental custom nodes for C
 
 ## 🎯 Usage Examples
 
-### Star Image Loader 1by1
-Perfect for batch processing workflows where you want to process images one at a time:
-- Set your image folder path
-- Enable reset_counter to restart from the first image
-- Use the progress outputs to monitor processing
-
-### Star Frame From Video
-Ideal for extracting specific frames from video sequences:
-- Connect video loader output to the images input
-- Select "Frame Number" and specify the exact frame you need
-- Or use "First Frame"/"Last Frame" for quick extraction
-
-### Star Save Panorama JPEG
-Essential for 360° content creation:
-- Connect your panorama image
-- Choose appropriate projection type
-- Files will be saved with proper metadata for panorama viewers
+### Star Qwen Image Ratio
+Use this node to quickly configure SD3-compatible empty latents and dimensions:
+- Select a ratio from the dropdown
+- Connect the `latent` output to SD3.5/SD3 workflows expecting a LATENT dict (`{"samples": ...}`)
+- Use the `width` and `height` outputs to configure downstream nodes
+ - Increase `batch_size` to generate batched latents in one step
 
 ## 🔄 Node Categories
 
 All nodes are organized under:
-- **⭐StarNodes/Video** - Video processing nodes
-- **⭐StarNodes/Image And Latent** - Image loading and saving utilities
+- **⭐StarNodes/Image And Latent** – Image/latent utilities
+
+Note: Previous beta nodes (image loaders, video frame tools, panorama saver, etc.) have been migrated to the main repository: `Starnodes2024/ComfyUI_StarNodes`.
 
 ## 🐛 Beta Testing & Feedback
 
