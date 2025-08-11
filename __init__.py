@@ -22,5 +22,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     **STAR_APPLY_OVERLAY_DEPTH_NODE_DISPLAY_NAME_MAPPINGS,
 }
 
+# Expose web assets (including docs) to ComfyUI
+# ComfyUI will look for help pages under WEB_DIRECTORY/docs/
+WEB_DIRECTORY = "web"
+
 
 
