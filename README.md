@@ -24,6 +24,21 @@ Welcome to **Star Beta Nodes** – a staging ground for experimental custom node
     - `batch_size` (INT, default 1): latent batch dimension
     - `custom_width`, `custom_height` (INT): used when selecting "Free Ratio (custom)", both enforced to be divisible by 16
 
+- **⭐ Star Qwen / WAN Ratio** (`StarQwenWanRatio`)
+  - Select preset sizes for Qwen, WAN HD, or WAN Full HD, or auto-pick the closest ratio from an input image
+  - Outputs an empty latent plus width/height
+  - Optional: `image` to enable "use_nearest_image_ratio"
+
+- **⭐ Star Qwen Image Edit Inputs** (`StarQwenImageEditInputs`)
+  - Stitch up to 4 input images and prepare Qwen-sized latent
+  - Stitch rules:
+    - 1 image: keep size, downscale longest side to 1328 if larger
+    - 2 images: 1×2 concat, cap height to 1328
+    - 3/4 images: 2×2 grid, letterboxed cells, final 1328×1328 (white background)
+  - Resolution dropdown:
+    - "Use Best Ratio from Image 1" or choose a Qwen preset / Free custom
+  - Outputs: stitched `IMAGE`, `LATENT`, `width`, `height`
+
 - **⭐ Star Apply Overlay (Depth)** (`StarApplyOverlayDepth`)
   - Blends a filtered image over a source image using either a provided mask or a depth/greyscale image converted to a mask
   - Options include strength, invert mask, preview, and pixel-based Gaussian blur of the mask
