@@ -744,75 +744,6 @@
       ]
     },
     {
-      "id": 3,
-      "type": "KSampler",
-      "pos": [
-        572,
-        242
-      ],
-      "size": [
-        300,
-        474
-      ],
-      "flags": {},
-      "order": 18,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 186
-        },
-        {
-          "name": "positive",
-          "type": "CONDITIONING",
-          "link": 201
-        },
-        {
-          "name": "negative",
-          "type": "CONDITIONING",
-          "link": 205
-        },
-        {
-          "name": "latent_image",
-          "type": "LATENT",
-          "link": 197
-        }
-      ],
-      "outputs": [
-        {
-          "name": "LATENT",
-          "type": "LATENT",
-          "slot_index": 0,
-          "links": [
-            128
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.3.48",
-        "Node name for S&R": "KSampler",
-        "enableTabs": false,
-        "tabWidth": 65,
-        "tabXOffset": 10,
-        "hasSecondTab": false,
-        "secondTabText": "Send Back",
-        "secondTabOffset": 80,
-        "secondTabWidth": 65,
-        "widget_ue_connectable": {}
-      },
-      "widgets_values": [
-        1028147303291241,
-        "randomize",
-        4,
-        2.5,
-        "euler",
-        "simple",
-        1
-      ]
-    },
-    {
       "id": 101,
       "type": "StarQwenImageEditInputs",
       "pos": [
@@ -966,6 +897,75 @@
       ],
       "color": "#432",
       "bgcolor": "#653"
+    },
+    {
+      "id": 3,
+      "type": "KSampler",
+      "pos": [
+        572,
+        242
+      ],
+      "size": [
+        300,
+        474
+      ],
+      "flags": {},
+      "order": 18,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 186
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 201
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 205
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 197
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "slot_index": 0,
+          "links": [
+            128
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.48",
+        "Node name for S&R": "KSampler",
+        "enableTabs": false,
+        "tabWidth": 65,
+        "tabXOffset": 10,
+        "hasSecondTab": false,
+        "secondTabText": "Send Back",
+        "secondTabOffset": 80,
+        "secondTabWidth": 65,
+        "widget_ue_connectable": {}
+      },
+      "widgets_values": [
+        1028147303291241,
+        "randomize",
+        4,
+        1,
+        "euler",
+        "simple",
+        1
+      ]
     }
   ],
   "links": [
@@ -1182,10 +1182,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.5774921950701696,
+      "scale": 0.9300569550824607,
       "offset": [
-        2173.175221933231,
-        -196.37679814560977
+        284.0130658022653,
+        -68.28331645766659
       ]
     },
     "frontendVersion": "1.25.9",
