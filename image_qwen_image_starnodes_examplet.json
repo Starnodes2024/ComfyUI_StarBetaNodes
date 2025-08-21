@@ -1,7 +1,7 @@
 {
   "id": "91f6bbe2-ed41-4fd6-bac7-71d5b5864ecb",
   "revision": 0,
-  "last_node_id": 108,
+  "last_node_id": 110,
   "last_link_id": 206,
   "nodes": [
     {
@@ -16,7 +16,7 @@
         60
       ],
       "flags": {},
-      "order": 11,
+      "order": 13,
       "mode": 0,
       "inputs": [
         {
@@ -65,7 +65,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 17,
+      "order": 19,
       "mode": 0,
       "inputs": [
         {
@@ -166,7 +166,7 @@
         650
       ],
       "flags": {},
-      "order": 18,
+      "order": 20,
       "mode": 0,
       "inputs": [
         {
@@ -348,7 +348,7 @@
         60
       ],
       "flags": {},
-      "order": 15,
+      "order": 17,
       "mode": 0,
       "inputs": [
         {
@@ -450,7 +450,7 @@
         292
       ],
       "flags": {},
-      "order": 13,
+      "order": 15,
       "mode": 0,
       "inputs": [
         {
@@ -539,7 +539,7 @@
         82
       ],
       "flags": {},
-      "order": 9,
+      "order": 11,
       "mode": 0,
       "inputs": [
         {
@@ -651,7 +651,7 @@
         292
       ],
       "flags": {},
-      "order": 12,
+      "order": 14,
       "mode": 0,
       "inputs": [
         {
@@ -755,7 +755,7 @@
         474
       ],
       "flags": {},
-      "order": 16,
+      "order": 18,
       "mode": 0,
       "inputs": [
         {
@@ -824,7 +824,7 @@
         190
       ],
       "flags": {},
-      "order": 10,
+      "order": 12,
       "mode": 0,
       "inputs": [
         {
@@ -905,7 +905,7 @@
         440
       ],
       "flags": {},
-      "order": 14,
+      "order": 16,
       "mode": 0,
       "inputs": [
         {
@@ -920,6 +920,52 @@
         "ver": "0.3.51",
         "Node name for S&R": "PreviewImage"
       }
+    },
+    {
+      "id": 109,
+      "type": "Note",
+      "pos": [
+        -1122,
+        858
+      ],
+      "size": [
+        242,
+        176
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "Connect up to 4 images for a stiched input images. Just bypass the image inputs you not need. Image 2-4 are optional."
+      ],
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 110,
+      "type": "Note",
+      "pos": [
+        110,
+        968
+      ],
+      "size": [
+        440,
+        176
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "If cache_tokens is set to \"true\" then the workflow only update the encoding if prompt or input image has changed."
+      ],
+      "color": "#432",
+      "bgcolor": "#653"
     }
   ],
   "links": [
@@ -1136,10 +1182,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.8455063228022346,
+      "scale": 0.5774921950701696,
       "offset": [
-        679.3064003065446,
-        209.32975577071625
+        2173.175221933231,
+        -196.37679814560977
       ]
     },
     "frontendVersion": "1.25.9",
