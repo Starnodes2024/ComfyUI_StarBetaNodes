@@ -64,6 +64,61 @@ function createDecimalInput(settingId, label, min, max, decimals, defaultValue, 
     };
 }
 
+// Helper to create a simple SELECT from an array of {label, value}
+function createSimpleSelect(settingId, label, options, defaultValue, onChangeCallback) {
+    return () => {
+        let currentValue = defaultValue;
+        try { currentValue = app.extensionManager?.setting?.get?.(settingId) ?? defaultValue; } catch (_) {}
+        const select = $el('select', {
+            style: { minWidth: '160px' },
+            onchange: function() {
+                const val = this.value;
+                app.extensionManager?.setting?.set?.(settingId, val);
+                if (onChangeCallback) onChangeCallback(val);
+            }
+        });
+        options.forEach(({ label: lab, value }) => {
+            const opt = document.createElement('option');
+            opt.value = value;
+            opt.textContent = lab;
+            if (String(value) === String(currentValue)) opt.selected = true;
+            select.appendChild(opt);
+        });
+        return $el('tr', [
+            $el('td', [ $el('label', { textContent: label }) ]),
+            $el('td', [ select ])
+        ]);
+    };
+}
+
+// Helper to create a color SELECT with preset palette
+function createColorSelect(settingId, label, palette, defaultValue, onChangeCallback) {
+    return () => {
+        let currentValue = defaultValue;
+        try { currentValue = app.extensionManager?.setting?.get?.(settingId) ?? defaultValue; } catch (_) {}
+        const select = $el('select', {
+            style: { minWidth: '160px' },
+            onchange: function() {
+                const val = this.value;
+                app.extensionManager?.setting?.set?.(settingId, val);
+                if (onChangeCallback) onChangeCallback(val);
+            }
+        });
+        // Build options
+        palette.forEach(({ name, value }) => {
+            const opt = document.createElement('option');
+            opt.value = value;
+            opt.textContent = `${name} (${value})`;
+            if (value.toLowerCase() === String(currentValue).toLowerCase()) opt.selected = true;
+            select.appendChild(opt);
+        });
+        return $el('tr', [
+            $el('td', [ $el('label', { textContent: label }) ]),
+            $el('td', [ select ])
+        ]);
+    };
+}
+
 app.registerExtension({
     name: "StarryLinks",
     
@@ -71,26 +126,72 @@ app.registerExtension({
     settings: [
         // Visual embellishments
         {
-            id: "StarryLinks.PurpleDotsEnabled",
-            name: "Purple Dot Chain",
+            id: "StarryLinks.DotsEnabled",
+            name: "Dots Enabled",
             type: "boolean",
             defaultValue: true,
-            tooltip: "Overlay small purple points along the rope"
+            tooltip: "Overlay small points along the rope"
+        },
+        {
+            id: "StarryLinks.DotColor",
+            name: "Dot Color",
+            type: createColorSelect(
+                "StarryLinks.DotColor",
+                "Dot Color",
+                [
+                    { name: 'White', value: '#ffffff' },
+                    { name: 'Yellow', value: '#ffd24a' },
+                    { name: 'Gold', value: '#ffcc00' },
+                    { name: 'Orange', value: '#ffa500' },
+                    { name: 'Red', value: '#ff4d4d' },
+                    { name: 'Pink', value: '#ff77aa' },
+                    { name: 'Purple', value: '#a76cff' },
+                    { name: 'Blue', value: '#66aaff' },
+                    { name: 'Cyan', value: '#33cccc' },
+                    { name: 'Teal', value: '#2dd4bf' },
+                    { name: 'Green', value: '#66cc66' }
+                ],
+                "#ffffff",
+                null
+            ),
+            defaultValue: "#ffffff",
+            tooltip: "Color of the dots"
         },
         {
             id: "StarryLinks.DotStep",
             name: "Dot Step (points)",
             type: "number",
-            defaultValue: 2,
-            tooltip: "Place a purple dot every N rope points (1-10)",
-            attrs: { min: 1, max: 10, step: 1 }
+            defaultValue: 10,
+            tooltip: "Place a dot every N rope samples (1-20)",
+            attrs: { min: 1, max: 20, step: 1 }
         },
         {
             id: "StarryLinks.DotSize",
             name: "Dot Size",
             type: createDecimalInput("StarryLinks.DotSize", "Dot Size", 0.5, 6.0, 1, 2.5, null),
-            defaultValue: 2.5,
-            tooltip: "Radius of the purple dots (0.5-6.0)"
+            defaultValue: 1.0,
+            tooltip: "Radius of the dots (0.5-6.0)"
+        },
+        {
+            id: "StarryLinks.DotBlinkEnabled",
+            name: "Dots Blinking",
+            type: "boolean",
+            defaultValue: true,
+            tooltip: "Animate a subtle blinking effect on dots"
+        },
+        {
+            id: "StarryLinks.DotBlinkSpeed",
+            name: "Dot Blink Speed",
+            type: createDecimalInput("StarryLinks.DotBlinkSpeed", "Dot Blink Speed", 0.1, 5.0, 2, 1.0, null),
+            defaultValue: 1.0,
+            tooltip: "How fast dots blink (0.1-5.0)"
+        },
+        {
+            id: "StarryLinks.DotBlinkStrength",
+            name: "Dot Blink Strength",
+            type: createDecimalInput("StarryLinks.DotBlinkStrength", "Dot Blink Strength", 0.0, 1.0, 2, 0.6, null),
+            defaultValue: 1.0,
+            tooltip: "How strongly dots vary brightness (0.0-1.0)"
         },
         {
             id: "StarryLinks.TwinkleEnabled",
@@ -103,14 +204,14 @@ app.registerExtension({
             id: "StarryLinks.TwinkleSpeed",
             name: "Twinkle Speed",
             type: createDecimalInput("StarryLinks.TwinkleSpeed", "Twinkle Speed", 0.1, 5.0, 2, 1.0, null),
-            defaultValue: 1.0,
+            defaultValue: 3.0,
             tooltip: "How fast stars twinkle (0.1-5.0)"
         },
         {
             id: "StarryLinks.TwinkleStrength",
             name: "Twinkle Strength",
             type: createDecimalInput("StarryLinks.TwinkleStrength", "Twinkle Strength", 0.0, 1.0, 2, 0.6, null),
-            defaultValue: 0.6,
+            defaultValue: 1.0,
             tooltip: "How strongly stars vary brightness (0.0-1.0)"
         },
         {
@@ -119,6 +220,31 @@ app.registerExtension({
             type: "boolean",
             defaultValue: true,
             tooltip: "Show a few golden stars along the rope"
+        },
+        {
+            id: "StarryLinks.StarColor",
+            name: "Star Color",
+            type: createColorSelect(
+                "StarryLinks.StarColor",
+                "Star Color",
+                [
+                    { name: 'White', value: '#ffffff' },
+                    { name: 'Yellow', value: '#ffd24a' },
+                    { name: 'Gold', value: '#ffcc00' },
+                    { name: 'Orange', value: '#ffa500' },
+                    { name: 'Red', value: '#ff4d4d' },
+                    { name: 'Pink', value: '#ff77aa' },
+                    { name: 'Purple', value: '#a76cff' },
+                    { name: 'Blue', value: '#66aaff' },
+                    { name: 'Cyan', value: '#33cccc' },
+                    { name: 'Teal', value: '#2dd4bf' },
+                    { name: 'Green', value: '#66cc66' }
+                ],
+                "#ffd24a",
+                null
+            ),
+            defaultValue: "#ffd24a",
+            tooltip: "Fill color of the stars"
         },
         {
             id: "StarryLinks.StarCount",
@@ -132,7 +258,7 @@ app.registerExtension({
             id: "StarryLinks.StarSize",
             name: "Star Size",
             type: createDecimalInput("StarryLinks.StarSize", "Star Size", 3, 20, 1, 7, null),
-            defaultValue: 7,
+            defaultValue: 10.0,
             tooltip: "Outer radius of the star shape (3-20)"
         },
         {
@@ -141,6 +267,91 @@ app.registerExtension({
             type: createDecimalInput("StarryLinks.LineWidth", "Line Width", 1, 12, 1, 1, null),
             defaultValue: 1,
             tooltip: "Stroke width of link lines (1-12)"
+        },
+        // Cute Otters climbing the ropes
+        {
+            id: "StarryLinks.OttersEnabled",
+            name: "Otters",
+            type: "boolean",
+            defaultValue: false,
+            tooltip: "Enable cute little purple otters climbing along the ropes"
+        },
+        {
+            id: "StarryLinks.OtterCount",
+            name: "Otter Count",
+            type: "number",
+            defaultValue: 1,
+            tooltip: "How many otters per rope (0-5)",
+            attrs: { min: 0, max: 5, step: 1 }
+        },
+        {
+            id: "StarryLinks.OtterSpeed",
+            name: "Otter Speed",
+            type: createDecimalInput("StarryLinks.OtterSpeed", "Otter Speed", 0.2, 3.0, 2, 1.2, null),
+            defaultValue: 1.2,
+            tooltip: "Otter climbing speed (in curve-length units per second)"
+        },
+        {
+            id: "StarryLinks.OtterScale",
+            name: "Otter Scale",
+            type: createDecimalInput("StarryLinks.OtterScale", "Otter Scale", 0.5, 2.0, 2, 1.0, null),
+            defaultValue: 1.0,
+            tooltip: "Size multiplier for otters"
+        },
+        {
+            id: "StarryLinks.OtterDirection",
+            name: "Otter Direction",
+            type: createSimpleSelect(
+                "StarryLinks.OtterDirection",
+                "Otter Direction",
+                [
+                    { label: 'Up', value: 'up' },
+                    { label: 'Down', value: 'down' },
+                    { label: 'Both (ping-pong)', value: 'both' }
+                ],
+                'up',
+                null
+            ),
+            defaultValue: 'up',
+            tooltip: "Direction otters climb along the rope"
+        },
+        {
+            id: "StarryLinks.OtterCutenessFX",
+            name: "Otter Cuteness FX",
+            type: "boolean",
+            defaultValue: true,
+            tooltip: "Occasional hearts/sparkles and subtle bobbing"
+        },
+        // PNG sprite otters (optional)
+        {
+            id: "StarryLinks.OtterSpritesEnabled",
+            name: "Otter Sprites (PNG)",
+            type: "boolean",
+            defaultValue: false,
+            tooltip: "Use PNG sprite otters from web/img/otters instead of vector"
+        },
+        {
+            id: "StarryLinks.OtterSpriteFrames",
+            name: "Otter Sprite Frames",
+            type: "number",
+            defaultValue: 9,
+            tooltip: "Number of frames (1=otter.png, >1=otter_0..N-1)",
+            attrs: { min: 1, max: 24, step: 1 }
+        },
+        {
+            id: "StarryLinks.OtterSpriteFPS",
+            name: "Otter Sprite FPS",
+            type: "number",
+            defaultValue: 6,
+            tooltip: "Animation speed in frames per second (0 disables frame animation)",
+            attrs: { min: 0, max: 24, step: 1 }
+        },
+        {
+            id: "StarryLinks.OtterSpritePathBase",
+            name: "Otter Sprite Path Base",
+            type: "string",
+            defaultValue: "",
+            tooltip: "Optional: full URL base to the folder containing sprite PNGs. Example: /extensions/ComfyUI_StarBetaNodes/web/img/otters"
         },
         {
             id: "StarryLinks.ZResetDefaults",
@@ -171,16 +382,33 @@ app.registerExtension({
                                     // Reset all StarryLinks settings
                                     const defaults = {
                                         // Visual-only defaults
-                                        'StarryLinks.PurpleDotsEnabled': true,
-                                        'StarryLinks.DotStep': 2,
-                                        'StarryLinks.DotSize': 2.5,
+                                        'StarryLinks.DotsEnabled': true,
+                                        'StarryLinks.DotColor': '#ffffff',
+                                        'StarryLinks.DotStep': 10,
+                                        'StarryLinks.DotSize': 1.0,
+                                        'StarryLinks.DotBlinkEnabled': true,
+                                        'StarryLinks.DotBlinkSpeed': 1.0,
+                                        'StarryLinks.DotBlinkStrength': 1.0,
                                         'StarryLinks.TwinkleEnabled': true,
-                                        'StarryLinks.TwinkleSpeed': 1.0,
-                                        'StarryLinks.TwinkleStrength': 0.6,
+                                        'StarryLinks.TwinkleSpeed': 3.0,
+                                        'StarryLinks.TwinkleStrength': 1.0,
                                         'StarryLinks.StarsEnabled': true,
+                                        'StarryLinks.StarColor': '#ffd24a',
                                         'StarryLinks.StarCount': 3,
-                                        'StarryLinks.StarSize': 7,
-                                                        'StarryLinks.LineWidth': 1
+                                        'StarryLinks.StarSize': 10.0,
+                                        'StarryLinks.LineWidth': 1.0,
+                                        // Otters
+                                        'StarryLinks.OttersEnabled': false,
+                                        'StarryLinks.OtterCount': 1,
+                                        'StarryLinks.OtterSpeed': 1.2,
+                                        'StarryLinks.OtterScale': 1.0,
+                                        'StarryLinks.OtterDirection': 'up',
+                                        'StarryLinks.OtterCutenessFX': true,
+                                        // Otter sprites
+                                        'StarryLinks.OtterSpritesEnabled': false,
+                                        'StarryLinks.OtterSpriteFrames': 9,
+                                        'StarryLinks.OtterSpriteFPS': 6,
+                                        'StarryLinks.OtterSpritePathBase': ''
                                     };
                                     
                                     // Apply all defaults
@@ -227,29 +455,170 @@ app.registerExtension({
 
         // Initialize default values for settings if they haven't been set
         const initializeDefaultValue = (id, defaultValue) => {
-            if (app.extensionManager?.setting?.get && app.extensionManager?.setting?.set) {
-                const currentValue = app.extensionManager.setting.get(id);
-                // If the value is exactly 1 (the ComfyUI default for uninitialized numbers), set our default
-                if (currentValue === 1 || currentValue === undefined || currentValue === null) {
-                    app.extensionManager.setting.set(id, defaultValue);
+            try {
+                if (app.extensionManager?.setting?.get && app.extensionManager?.setting?.set) {
+                    const currentValue = app.extensionManager.setting.get(id);
+                    if (typeof currentValue === 'undefined' || currentValue === null) {
+                        app.extensionManager.setting.set(id, defaultValue);
+                    }
                 }
-            }
+            } catch (_) {}
         };
+
+        // Draw a simple, cute purple otter using vector shapes
+        function drawCuteOtter(ctx, p, p2, scale = 1.0, fx = true) {
+            const angle = Math.atan2(p2[1] - p[1], p2[0] - p[0]);
+            const base = '#a76cff'; // purple
+            const dark = '#6a3fb8';
+            const eye = '#2b2140';
+            const belly = '#d9c6ff';
+            const size = 10 * scale; // base size matches star size scale
+            const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+            const bob = fx ? Math.sin(now * 0.005 + (p[0] + p[1]) * 0.01) * 1.5 : 0;
+
+            ctx.save();
+            ctx.translate(p[0], p[1] + bob);
+            ctx.rotate(angle);
+            ctx.scale(1, 1);
+
+            // tiny shadow
+            ctx.save();
+            ctx.translate(0, size * 0.9);
+            ctx.fillStyle = 'rgba(0,0,0,0.12)';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, size * 0.9, size * 0.35, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            // body (rounded capsule)
+            ctx.fillStyle = base;
+            ctx.strokeStyle = dark;
+            ctx.lineWidth = 1;
+            const w = size * 1.1;
+            const h = size * 1.8;
+            const r = size * 0.55;
+            ctx.beginPath();
+            ctx.moveTo(-w/2 + r, -h/2);
+            ctx.lineTo(w/2 - r, -h/2);
+            ctx.quadraticCurveTo(w/2, -h/2, w/2, -h/2 + r);
+            ctx.lineTo(w/2, h/2 - r);
+            ctx.quadraticCurveTo(w/2, h/2, w/2 - r, h/2);
+            ctx.lineTo(-w/2 + r, h/2);
+            ctx.quadraticCurveTo(-w/2, h/2, -w/2, h/2 - r);
+            ctx.lineTo(-w/2, -h/2 + r);
+            ctx.quadraticCurveTo(-w/2, -h/2, -w/2 + r, -h/2);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // belly patch
+            ctx.fillStyle = belly;
+            ctx.beginPath();
+            ctx.ellipse(0, size * 0.1, w * 0.45, h * 0.35, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // head
+            const hr = size * 0.7;
+            ctx.fillStyle = base;
+            ctx.strokeStyle = dark;
+            ctx.beginPath();
+            ctx.arc(0, -h * 0.55, hr, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // ears
+            ctx.beginPath();
+            ctx.arc(-hr * 0.6, -h * 0.55 - hr * 0.4, hr * 0.25, 0, Math.PI * 2);
+            ctx.arc(hr * 0.6, -h * 0.55 - hr * 0.4, hr * 0.25, 0, Math.PI * 2);
+            ctx.fill();
+
+            // eyes
+            ctx.fillStyle = eye;
+            const blink = (Math.floor(now / 1200 + (p[0] + p[1]) * 0.001) % 6) === 0; // occasional blink
+            if (!blink) {
+                ctx.beginPath();
+                ctx.arc(-hr * 0.3, -h * 0.55, hr * 0.12, 0, Math.PI * 2);
+                ctx.arc(hr * 0.3, -h * 0.55, hr * 0.12, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                ctx.lineWidth = 1.2;
+                ctx.beginPath();
+                ctx.moveTo(-hr * 0.42, -h * 0.55);
+                ctx.lineTo(-hr * 0.18, -h * 0.55);
+                ctx.moveTo(hr * 0.18, -h * 0.55);
+                ctx.lineTo(hr * 0.42, -h * 0.55);
+                ctx.stroke();
+            }
+
+            // nose/mouth
+            ctx.strokeStyle = eye;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, -h * 0.48);
+            ctx.lineTo(0, -h * 0.44);
+            ctx.moveTo(0, -h * 0.44);
+            ctx.quadraticCurveTo(-hr * 0.15, -h * 0.40, -hr * 0.25, -h * 0.40);
+            ctx.moveTo(0, -h * 0.44);
+            ctx.quadraticCurveTo(hr * 0.15, -h * 0.40, hr * 0.25, -h * 0.40);
+            ctx.stroke();
+
+            // paws (simple ovals)
+            ctx.fillStyle = dark;
+            ctx.beginPath();
+            ctx.ellipse(-w*0.25, 0, size*0.2, size*0.12, 0.2, 0, Math.PI*2);
+            ctx.ellipse(w*0.25, 0, size*0.2, size*0.12, -0.2, 0, Math.PI*2);
+            ctx.fill();
+
+            // optional heart sparkles
+            if (fx) {
+                const heartY = -h * 0.9 + Math.sin(now * 0.006 + (p[0] - p[1]) * 0.01) * 3;
+                const heartAlpha = 0.5 + 0.5 * Math.sin(now * 0.006);
+                ctx.globalAlpha = heartAlpha;
+                ctx.fillStyle = '#ff77aa';
+                ctx.beginPath();
+                const hs = size * 0.35;
+                // small heart shape
+                ctx.moveTo(0, heartY);
+                ctx.bezierCurveTo(-hs*0.5, heartY - hs*0.8, -hs, heartY - hs*0.1, 0, heartY + hs*0.6);
+                ctx.bezierCurveTo(hs, heartY - hs*0.1, hs*0.5, heartY - hs*0.8, 0, heartY);
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+            }
+
+            ctx.restore();
+        }
 
         // Set defaults after a short delay to ensure settings are loaded
         setTimeout(() => {
             // Visual-only defaults
-            initializeDefaultValue('StarryLinks.PurpleDotsEnabled', true);
-            initializeDefaultValue('StarryLinks.DotStep', 2);
-            initializeDefaultValue('StarryLinks.DotSize', 2.5);
+            initializeDefaultValue('StarryLinks.DotsEnabled', true);
+            initializeDefaultValue('StarryLinks.DotColor', '#ffffff');
+            initializeDefaultValue('StarryLinks.DotStep', 10);
+            initializeDefaultValue('StarryLinks.DotSize', 1.0);
+            initializeDefaultValue('StarryLinks.DotBlinkEnabled', true);
+            initializeDefaultValue('StarryLinks.DotBlinkSpeed', 1.0);
+            initializeDefaultValue('StarryLinks.DotBlinkStrength', 1.0);
             initializeDefaultValue('StarryLinks.TwinkleEnabled', true);
-            initializeDefaultValue('StarryLinks.TwinkleSpeed', 1.0);
-            initializeDefaultValue('StarryLinks.TwinkleStrength', 0.6);
+            initializeDefaultValue('StarryLinks.TwinkleSpeed', 3.0);
+            initializeDefaultValue('StarryLinks.TwinkleStrength', 1.0);
             initializeDefaultValue('StarryLinks.StarsEnabled', true);
+            initializeDefaultValue('StarryLinks.StarColor', '#ffd24a');
             initializeDefaultValue('StarryLinks.StarCount', 3);
-            initializeDefaultValue('StarryLinks.StarSize', 7);
+            initializeDefaultValue('StarryLinks.StarSize', 10.0);
             initializeDefaultValue('StarryLinks.LineColor', '#AAAAAA');
-            initializeDefaultValue('StarryLinks.LineWidth', 1);
+            initializeDefaultValue('StarryLinks.LineWidth', 1.0);
+            // Otters
+            initializeDefaultValue('StarryLinks.OttersEnabled', false);
+            initializeDefaultValue('StarryLinks.OtterCount', 1);
+            initializeDefaultValue('StarryLinks.OtterSpeed', 1.2);
+            initializeDefaultValue('StarryLinks.OtterScale', 1.0);
+            initializeDefaultValue('StarryLinks.OtterDirection', 'up');
+            initializeDefaultValue('StarryLinks.OtterCutenessFX', true);
+            // Sprites
+            initializeDefaultValue('StarryLinks.OtterSpritesEnabled', false);
+            initializeDefaultValue('StarryLinks.OtterSpriteFrames', 9);
+            initializeDefaultValue('StarryLinks.OtterSpriteFPS', 6);
+            initializeDefaultValue('StarryLinks.OtterSpritePathBase', '');
         }, 100);
         
         // Set up execution event listeners
@@ -367,6 +736,167 @@ app.registerExtension({
             return originalRenderLink.apply(this, arguments);
         };
         
+        // Resolve base URL for this extension to load assets (robust to query strings)
+        let __starryBaseUrl = null;
+        let __starryScriptSrc = null;
+        function getStarryBaseUrl() {
+            if (__starryBaseUrl) return __starryBaseUrl;
+            try {
+                const scripts = document.getElementsByTagName('script');
+                for (let i = 0; i < scripts.length; i++) {
+                    const src = scripts[i].src || '';
+                    if (src.includes('/web/js/starrylinks.js')) {
+                        __starryScriptSrc = src;
+                        // strip trailing /web/js/starrylinks.js with optional query string
+                        const m = src.match(/^(.*)\/web\/js\/starrylinks\.js(?:\?.*)?$/);
+                        __starryBaseUrl = m ? m[1] : '';
+                        return __starryBaseUrl;
+                    }
+                }
+            } catch (_) {}
+            // Fallback to relative root
+            __starryBaseUrl = '';
+            return __starryBaseUrl;
+        }
+
+        function buildOtterSpriteCandidates(filename) {
+            const candidates = [];
+            
+            // 1) User-configured base path (highest priority)
+            try {
+                const userBase = (app.extensionManager?.setting?.get?.('StarryLinks.OtterSpritePathBase') || '').trim();
+                if (userBase) {
+                    const clean = userBase.replace(/\/$/, '');
+                    candidates.push(`${clean}/${filename}`);
+                    return candidates; // Return immediately if user path is set
+                }
+            } catch (_) {}
+            
+            // 2) Direct relative path from current script location
+            try {
+                // Get the directory where this script is running
+                const scriptUrl = new URL(import.meta.url || document.currentScript?.src || location.href);
+                const basePath = scriptUrl.href.replace('/starrylinks.js', '');
+                candidates.push(`${basePath}/otters/${filename}`);
+            } catch (_) {
+                // Fallback: construct from known structure
+                candidates.push('./otters/' + filename);
+            }
+            
+            // 3) ComfyUI standard paths
+            candidates.push('/extensions/ComfyUI_StarBetaNodes/web/js/otters/' + filename);
+            candidates.push('/custom_nodes/ComfyUI_StarBetaNodes/web/js/otters/' + filename);
+            
+            // Return filtered paths
+            return candidates.filter(url => url && url.length > 0);
+        }
+
+        function loadImageWithFallback(img, urls, onload, onfail) {
+            let idx = 0;
+            const tryNext = () => {
+                if (idx >= urls.length) { onfail && onfail(); return; }
+                const url = urls[idx++];
+                img.onload = onload;
+                img.onerror = tryNext;
+                img.src = url;
+            };
+            tryNext();
+        }
+
+        // Simple sprite cache
+        const spriteCache = {
+            key: null,
+            frames: 0,
+            fps: 0,
+            images: [],
+            ready: false,
+            loading: false
+        };
+
+        function loadOtterSprites(frames) {
+            const key = `frames:${frames}`;
+            if (spriteCache.key === key && (spriteCache.ready || spriteCache.loading)) return;
+            spriteCache.key = key;
+            spriteCache.frames = frames;
+            spriteCache.images = [];
+            spriteCache.ready = false;
+            spriteCache.loading = true;
+            let loaded = 0;
+            const total = frames;
+            
+            const onImageLoad = () => {
+                loaded++;
+                if (loaded === total) {
+                    spriteCache.ready = true;
+                    spriteCache.loading = false;
+                    console.log(`StarryLinks: Loaded ${total} otter sprite frames`);
+                }
+            };
+            
+            const onImageError = (url) => {
+                console.warn(`StarryLinks: Failed to load sprite: ${url}`);
+                spriteCache.loading = false;
+            };
+            
+            if (frames === 1) {
+                const img = new Image();
+                const urls = buildOtterSpriteCandidates('otter.png');
+                console.log(`StarryLinks: Loading single sprite from:`, urls);
+                loadImageWithFallback(
+                    img,
+                    urls,
+                    () => { 
+                        spriteCache.images[0] = img; 
+                        spriteCache.ready = true; 
+                        spriteCache.loading = false; 
+                        console.log('StarryLinks: Loaded single otter sprite');
+                    },
+                    () => { 
+                        spriteCache.loading = false; 
+                        console.warn('StarryLinks: Failed to load single otter sprite');
+                    }
+                );
+            } else {
+                for (let i = 0; i < frames; i++) {
+                    const img = new Image();
+                    const urls = buildOtterSpriteCandidates(`otter_${i}.png`);
+                    console.log(`StarryLinks: Loading sprite ${i} from:`, urls);
+                    loadImageWithFallback(
+                        img,
+                        urls,
+                        onImageLoad,
+                        () => onImageError(urls[0])
+                    );
+                    spriteCache.images[i] = img;
+                }
+            }
+        }
+
+        function drawOtterSprite(ctx, p, p2, scale = 1.0, fx = true, fps = 6) {
+            if (!spriteCache.ready || spriteCache.images.length === 0) return false;
+            const angle = Math.atan2(p2[1] - p[1], p2[0] - p[0]);
+            const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+            const bob = fx ? Math.sin(now * 0.005 + (p[0] + p[1]) * 0.01) * 1.5 : 0;
+            let frameIdx = 0;
+            if (fps > 0 && spriteCache.images.length > 1) {
+                frameIdx = Math.floor((now / 1000) * fps) % spriteCache.images.length;
+            }
+            const img = spriteCache.images[frameIdx] || spriteCache.images[0];
+            if (!img) return false;
+
+            const size = 10 * scale; // base vector size; map to pixels
+            const targetW = 48 * scale;
+            const targetH = 48 * scale;
+
+            ctx.save();
+            ctx.translate(p[0], p[1] + bob);
+            ctx.rotate(angle);
+            // Center the sprite on the path point
+            ctx.drawImage(img, -targetW / 2, -targetH / 2, targetW, targetH);
+            ctx.restore();
+            return true;
+        }
+
         // Helper to render stars/dots along the bezier between a and b using start/dir dirs
         LGraphCanvas.prototype._renderStarsOnCurve = function(ctx, a, b, link, color, start_dir, end_dir) {
             // Derive control points similar to LiteGraph curves
@@ -388,37 +918,102 @@ app.registerExtension({
             const cp1 = cpFrom(a, start_dir, K);
             const cp2 = cpFrom(b, end_dir, K);
 
-            // Sample the curve
-            const samples = Math.max(12, Math.min(80, Math.round(dist / 10)));
+            // Sample the curve with higher resolution and prepare cumulative lengths
+            const samples = Math.max(32, Math.min(240, Math.round(dist / 4)));
             const points = new Array(samples + 1);
+            const lens = new Array(samples + 1);
+            let totalLen = 0;
+            let prev = null;
             for (let i = 0; i <= samples; i++) {
                 const t = i / samples;
-                const out = [0,0];
+                const out = [0, 0];
                 findPointOnCurve(out, a, b, cp1, cp2, t);
                 points[i] = out;
+                if (i === 0) {
+                    lens[i] = 0;
+                    prev = out;
+                } else {
+                    const seg = Math.hypot(out[0] - prev[0], out[1] - prev[1]);
+                    totalLen += seg;
+                    lens[i] = totalLen;
+                    prev = out;
+                }
+            }
+
+            function pointAtArcLength(s) {
+                if (s <= 0) return points[0];
+                if (s >= totalLen) return points[points.length - 1];
+                // binary search in lens
+                let lo = 0, hi = lens.length - 1;
+                while (lo < hi) {
+                    const mid = (lo + hi) >> 1;
+                    if (lens[mid] < s) lo = mid + 1; else hi = mid;
+                }
+                const i = Math.max(1, lo);
+                const l0 = lens[i - 1];
+                const l1 = lens[i];
+                const p0 = points[i - 1];
+                const p1 = points[i];
+                const t = (s - l0) / Math.max(1e-6, l1 - l0);
+                return [p0[0] + (p1[0] - p0[0]) * t, p0[1] + (p1[1] - p0[1]) * t];
             }
 
             // Settings
             const getSetting = (id, def) => app.extensionManager?.setting?.get?.(id) ?? def;
-            const dotsEnabled = !!getSetting('StarryLinks.PurpleDotsEnabled', true);
-            const dotStep = Math.max(1, parseInt(getSetting('StarryLinks.DotStep', 2) || 2));
-            const dotSize = parseFloat(getSetting('StarryLinks.DotSize', 2.5) || 2.5);
+            // Backward compatibility: migrate old PurpleDotsEnabled to DotsEnabled if present
+            let dotsEnabledRaw = app.extensionManager?.setting?.get?.('StarryLinks.DotsEnabled');
+            if (typeof dotsEnabledRaw === 'undefined') {
+                const old = app.extensionManager?.setting?.get?.('StarryLinks.PurpleDotsEnabled');
+                if (typeof old !== 'undefined') dotsEnabledRaw = old;
+                else dotsEnabledRaw = true;
+            }
+            const dotsEnabled = !!dotsEnabledRaw;
+            const dotColor = getSetting('StarryLinks.DotColor', '#ffffff') || '#ffffff';
+            const dotStep = Math.max(1, parseInt(getSetting('StarryLinks.DotStep', 10) || 10));
+            const dotSize = parseFloat(getSetting('StarryLinks.DotSize', 1.0) || 1.0);
+            const dotBlinkEnabled = !!getSetting('StarryLinks.DotBlinkEnabled', true);
+            const dotBlinkSpeed = parseFloat(getSetting('StarryLinks.DotBlinkSpeed', 1.0) || 1.0);
+            const dotBlinkStrength = Math.max(0, Math.min(1, parseFloat(getSetting('StarryLinks.DotBlinkStrength', 1.0) || 1.0)));
             const starsEnabled = !!getSetting('StarryLinks.StarsEnabled', true);
+            const starColor = getSetting('StarryLinks.StarColor', '#ffd24a') || '#ffd24a';
             const starCount = Math.max(0, parseInt(getSetting('StarryLinks.StarCount', 3) || 3));
-            const starSize = parseFloat(getSetting('StarryLinks.StarSize', 7) || 7);
+            const starSize = parseFloat(getSetting('StarryLinks.StarSize', 10.0) || 10.0);
             const twinkleEnabled = !!getSetting('StarryLinks.TwinkleEnabled', true);
-            const twinkleSpeed = parseFloat(getSetting('StarryLinks.TwinkleSpeed', 1.0) || 1.0);
-            const twinkleStrength = Math.max(0, Math.min(1, parseFloat(getSetting('StarryLinks.TwinkleStrength', 0.6) || 0.6)));
+            const twinkleSpeed = parseFloat(getSetting('StarryLinks.TwinkleSpeed', 3.0) || 3.0);
+            const twinkleStrength = Math.max(0, Math.min(1, parseFloat(getSetting('StarryLinks.TwinkleStrength', 1.0) || 1.0)));
+            const ottersEnabled = !!getSetting('StarryLinks.OttersEnabled', false);
+            const otterCount = Math.max(0, Math.min(5, parseInt(getSetting('StarryLinks.OtterCount', 1) || 1)));
+            const otterSpeed = Math.max(0.2, Math.min(3.0, parseFloat(getSetting('StarryLinks.OtterSpeed', 1.2) || 1.2)));
+            const otterScale = Math.max(0.5, Math.min(2.0, parseFloat(getSetting('StarryLinks.OtterScale', 1.0) || 1.0)));
+            const otterDir = String(getSetting('StarryLinks.OtterDirection', 'up') || 'up');
+            const otterFX = !!getSetting('StarryLinks.OtterCutenessFX', true);
+            const otterSpritesEnabled = !!getSetting('StarryLinks.OtterSpritesEnabled', false);
+            const otterSpriteFrames = Math.max(1, Math.min(24, parseInt(getSetting('StarryLinks.OtterSpriteFrames', 6) || 6)));
+            const otterSpriteFPS = Math.max(0, Math.min(24, parseInt(getSetting('StarryLinks.OtterSpriteFPS', 6) || 6)));
 
             // Draw dots
             if (dotsEnabled && points.length) {
                 ctx.save();
-                ctx.fillStyle = '#a76cff'; // Always use purple for dots
-                for (let i = 0; i < points.length; i += dotStep) {
-                    const p = points[i];
+                ctx.fillStyle = dotColor;
+                const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+                // Place dots approximately every N samples but using arc-length to keep spacing consistent
+                const approxCount = Math.floor(points.length / dotStep);
+                const spacing = approxCount > 0 ? (totalLen / approxCount) : totalLen;
+                let placed = 0;
+                for (let s = 0; s <= totalLen + 1e-3; s += spacing) {
+                    const p = pointAtArcLength(s);
+                    let alpha = 1.0;
+                    if (dotBlinkEnabled) {
+                        const phase = ((p[0] * 73856093 ^ p[1] * 19349663) >>> 0) % 1000 / 1000 * Math.PI * 2;
+                        const sgn = Math.sin((now / 1000) * dotBlinkSpeed * Math.PI * 2 + phase);
+                        const variation = (sgn * 0.5 + 0.5) * dotBlinkStrength;
+                        alpha = 0.5 + 0.5 * variation;
+                    }
+                    ctx.globalAlpha = alpha;
                     ctx.beginPath();
                     ctx.arc(p[0], p[1], dotSize, 0, Math.PI * 2);
                     ctx.fill();
+                    placed++;
                 }
                 ctx.restore();
             }
@@ -442,16 +1037,14 @@ app.registerExtension({
                 x = x + 0xfd7046c5 + (x << 3) | 0; x = x ^ 0xb55a4f09 ^ (x >>> 16); return x >>> 0; }
 
             if (starsEnabled && starCount > 0 && points.length > 2) {
-                const baseHue = 48;
-                // Use broad-compatible CSS hsl syntax (commas)
-                const baseColor = `hsl(${baseHue}, 90%, 55%)`;
-                const glowColor = `hsl(${baseHue}, 100%, 70%)`;
+                const baseColor = starColor;
+                const glowColor = starColor;
                 const seed = hash32(((link?.id) ?? 0) ^ (a[0] | 0) ^ (b[1] | 0));
                 const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
                 for (let k = 0; k < starCount; k++) {
-                    const idx = Math.floor(((k + 1) / (starCount + 1)) * (points.length - 1));
-                    const p = points[idx];
+                    const s = ((k + 1) / (starCount + 1)) * totalLen;
+                    const p = pointAtArcLength(s);
                     if (!p) continue;
                     // Twinkle alpha
                     let alpha = 0.9;
@@ -470,12 +1063,58 @@ app.registerExtension({
                     ctx.fillStyle = baseColor;
                     ctx.shadowColor = glowColor;
                     ctx.shadowBlur = 12;
-                    ctx.strokeStyle = '#ffd24a';
+                    ctx.strokeStyle = baseColor;
                     ctx.lineWidth = 1;
                     drawStar(ctx, 0, 0, 5, starSize, starSize * 0.5);
                     ctx.fill();
                     ctx.stroke();
                     ctx.restore();
+                }
+            }
+
+            // Otters climbing along the rope
+            if (ottersEnabled && otterCount > 0 && points.length > 2 && totalLen > 0) {
+                const nowMs = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+                const tSec = nowMs / 1000;
+                // Interpret otter speed as pixels per second along the curve
+                const speedPx = otterSpeed * 50; // tuned multiplier for pleasant default pacing
+
+                // Helper to sample two nearby points for tangent
+                const sampleLengthToPoint = (s) => pointAtArcLength(Math.max(0, Math.min(totalLen, s)));
+
+                // Ensure sprites are loading if enabled
+                if (otterSpritesEnabled) {
+                    loadOtterSprites(otterSpriteFrames);
+                }
+
+                for (let i = 0; i < otterCount; i++) {
+                    const phase = (i / otterCount) * totalLen;
+                    let dirMul = 1;
+                    let s;
+                    if (otterDir === 'down') {
+                        dirMul = -1;
+                    } else if (otterDir === 'both') {
+                        // ping-pong between 0..totalLen
+                        const cycle = (tSec * speedPx + phase * 0.25) / Math.max(1e-6, totalLen);
+                        const frac = cycle - Math.floor(cycle);
+                        dirMul = (Math.floor(cycle) % 2 === 0) ? 1 : -1;
+                        const sRaw = frac * totalLen;
+                        s = dirMul > 0 ? sRaw : (totalLen - sRaw);
+                    }
+                    if (otterDir !== 'both') {
+                        const sUnwrapped = (tSec * speedPx * dirMul + phase);
+                        s = ((sUnwrapped % totalLen) + totalLen) % totalLen;
+                    }
+                    const p = sampleLengthToPoint(s);
+                    const p2 = sampleLengthToPoint(s + 1);
+                    // Try sprite first if enabled and ready
+                    let drawn = false;
+                    if (otterSpritesEnabled && spriteCache.ready) {
+                        drawn = drawOtterSprite(ctx, p, p2, otterScale, otterFX, otterSpriteFPS);
+                    }
+                    if (!drawn) {
+                        drawCuteOtter(ctx, p, p2, otterScale, otterFX);
+                    }
                 }
             }
         };
@@ -486,8 +1125,10 @@ app.registerExtension({
                 const tick = () => {
                     try {
                         const settings = app.extensionManager?.setting;
-                        const enabled = settings?.get?.('StarryLinks.TwinkleEnabled');
-                        if (enabled && app?.canvas) {
+                        const twinkleOn = settings?.get?.('StarryLinks.TwinkleEnabled');
+                        const blinkOn = settings?.get?.('StarryLinks.DotBlinkEnabled');
+                        const ottersOn = settings?.get?.('StarryLinks.OttersEnabled');
+                        if ((twinkleOn || blinkOn || ottersOn) && app?.canvas) {
                             // Avoid forcing redraw if a menu is open
                             const c = app.canvas;
                             const menuOpen = !!(c.current_menu || c.canvas_menu);
