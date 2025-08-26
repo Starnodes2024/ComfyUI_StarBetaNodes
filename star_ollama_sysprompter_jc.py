@@ -60,8 +60,8 @@ class StarOllamaSysprompterJC:
             }
         }
 
-    RETURN_TYPES = ("STRING", "STRING")
-    RETURN_NAMES = ("system_prompt", "detail_prompt")
+    RETURN_TYPES = ("STRING", "STRING", "STRING")
+    RETURN_NAMES = ("system_prompt", "detail_prompt", "style_name")
     FUNCTION = "build"
     CATEGORY = "⭐StarNodes/Prompts"
 
@@ -78,7 +78,7 @@ class StarOllamaSysprompterJC:
         # fallback
         return style_choice, style_choice
 
-    def build(self, max_tokens: int, style: str, own_style: str, additional_system_prompt: str) -> Tuple[str, str]:
+    def build(self, max_tokens: int, style: str, own_style: str, additional_system_prompt: str) -> Tuple[str, str, str]:
         style_name, style_desc = self._resolve_style(style, own_style)
 
         # System prompt
@@ -97,7 +97,7 @@ class StarOllamaSysprompterJC:
             f"no questions or comments. change style to {style_name}. turn prompt into {style_desc}"
         )
 
-        return (system_prompt, detail_prompt)
+        return (system_prompt, detail_prompt, style_name)
 
 
 NODE_CLASS_MAPPINGS = {

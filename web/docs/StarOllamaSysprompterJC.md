@@ -15,6 +15,7 @@ This node lets you choose a style from a dropdown (loaded from `styles.json`) or
 
 - **system_prompt (STRING)**: Fixed, plus your additional system prompt (if provided).
 - **detail_prompt (STRING)**: Uses your token count and chosen style name/description.
+- **style_name (STRING)**: The resolved style display name (selected dropdown value or your own style string).
 
 ## Behavior details
 
@@ -54,3 +55,5 @@ You can edit this file and reload custom nodes in ComfyUI to update the dropdown
     `You are an AI artist. you create one image prompt. no questions or comments. Use Lora:metal-edges`
   - detail_prompt:
     `describe the image and create an image prompt with 300 tokens max. no questions or comments. change style to Pencil Sketch. turn prompt into detailed pencil sketch`
+  - style_name:
+    `Pencil Sketch`
