@@ -10,6 +10,7 @@ This node lets you choose a style from a dropdown (loaded from `styles.json`) or
 - **style (CHOICE)**: Dropdown populated from `styles.json`. The first entry is `Own Style`.
 - **own_style (STRING)**: If `Own Style` is chosen, this text is used for both `STYLENAME` and `STYLE`.
 - **additional_system_prompt (STRING)**: Appended to the end of the system prompt if not empty.
+- **Fit Composition to Style (BOOLEAN)**: When enabled, appends `Change image composition to fit the chosen style.` to the system prompt.
 
 ## Outputs
 
@@ -22,6 +23,7 @@ This node lets you choose a style from a dropdown (loaded from `styles.json`) or
 - When `style` is not `Own Style`, `STYLENAME` is taken from the selected style's `name`, and `STYLE` from its `style` description.
 - When `style` is `Own Style`, your `own_style` string is used for both `STYLENAME` and `STYLE`.
 - `max_tokens` replaces the placeholder `###` in the detail prompt line.
+- If `Fit Composition to Style` is enabled, the system prompt will include: `Change image composition to fit the chosen style.`
 
 ## Prompt templates
 
@@ -49,10 +51,10 @@ You can edit this file and reload custom nodes in ComfyUI to update the dropdown
 
 ## Example
 
-- Inputs: `max_tokens=300`, `style=Pencil Sketch`, `additional_system_prompt="Use Lora:metal-edges"`
+- Inputs: `max_tokens=300`, `style=Pencil Sketch`, `additional_system_prompt="Use Lora:metal-edges"`, `Fit Composition to Style=true`
 - Outputs:
   - system_prompt:
-    `You are an AI artist. you create one image prompt. no questions or comments. Use Lora:metal-edges`
+    `You are an AI artist. you create one image prompt. no questions or comments. Use Lora:metal-edges Change image composition to fit the chosen style.`
   - detail_prompt:
     `describe the image and create an image prompt with 300 tokens max. no questions or comments. change style to Pencil Sketch. turn prompt into detailed pencil sketch`
   - style_name:

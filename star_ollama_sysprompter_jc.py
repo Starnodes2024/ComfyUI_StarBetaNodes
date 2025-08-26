@@ -57,6 +57,7 @@ class StarOllamaSysprompterJC:
                 "style": (options, {"default": options[0]}),
                 "own_style": ("STRING", {"default": "", "multiline": False}),
                 "additional_system_prompt": ("STRING", {"default": "", "multiline": True}),
+                "fit_composition_to_style": ("BOOLEAN", {"default": False}),
             }
         }
 
@@ -78,7 +79,7 @@ class StarOllamaSysprompterJC:
         # fallback
         return style_choice, style_choice
 
-    def build(self, max_tokens: int, style: str, own_style: str, additional_system_prompt: str) -> Tuple[str, str, str]:
+    def build(self, max_tokens: int, style: str, own_style: str, additional_system_prompt: str, fit_composition_to_style: bool) -> Tuple[str, str, str]:
         style_name, style_desc = self._resolve_style(style, own_style)
 
         # System prompt
@@ -88,6 +89,8 @@ class StarOllamaSysprompterJC:
         add = (additional_system_prompt or "").strip()
         if add:
             sys_parts.append(add)
+        if bool(fit_composition_to_style):
+            sys_parts.append("Change image composition to fit the chosen style.")
         system_prompt = " ".join(sys_parts)
 
         # Detail prompt
