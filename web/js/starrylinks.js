@@ -872,7 +872,38 @@ app.registerExtension({
             }
         }
 
-        function drawOtterSprite(ctx, p, p2, scale = 1.0, fx = true, fps = 6) {
+        // Simple global state for occasional sprite "cuteness" (red tint + heart)
+        // Keyed by `${linkId}:${otterIndex}` to persist across frames
+        if (!window.__starryOtterLoveStates) window.__starryOtterLoveStates = {};
+
+        // Tiny pixel heart made of rectangles (no external images)
+        function drawPixelHeart(ctx, yOffset, pixelScale) {
+            const s = pixelScale; // base pixel size
+            const x = -2 * s;
+            const y = yOffset - 3 * s;
+            ctx.fillStyle = '#ff4d6d';
+            // 6x6 pixel grid for a small heart
+            // Layout (1 = fill):
+            // . 1 1 . 1 1 .
+            // 1 1 1 1 1 1 1
+            // 1 1 1 1 1 1 1
+            // . 1 1 1 1 1 .
+            // . . 1 1 1 . .
+            // . . . 1 . . .
+            const dots = [
+                [0,1],[1,1],[3,1],[4,1],
+                [0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[6,2],
+                [0,3],[1,3],[2,3],[3,3],[4,3],[5,3],[6,3],
+                [1,4],[2,4],[3,4],[4,4],[5,4],
+                [2,5],[3,5],[4,5],
+                [3,6]
+            ];
+            for (const [gx, gy] of dots) {
+                ctx.fillRect(x + gx * s, y + gy * s, s, s);
+            }
+        }
+
+        function drawOtterSprite(ctx, p, p2, scale = 1.0, fx = true, fps = 6, loveProgress = 0) {
             if (!spriteCache.ready || spriteCache.images.length === 0) return false;
             const angle = Math.atan2(p2[1] - p[1], p2[0] - p[0]);
             const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
@@ -886,13 +917,75 @@ app.registerExtension({
 
             const size = 10 * scale; // base vector size; map to pixels
             const targetW = 48 * scale;
-            const targetH = 48 * scale;
+            const targetH = 38 * scale; // sprite native height is 38px
 
             ctx.save();
             ctx.translate(p[0], p[1] + bob);
             ctx.rotate(angle);
-            // Center the sprite on the path point
-            ctx.drawImage(img, -targetW / 2, -targetH / 2, targetW, targetH);
+            // If in love state, tint the sprite pixels in a soft oval region over the head, then draw heart
+            if (loveProgress > 0) {
+                const ease = loveProgress < 0.5 ? (2 * loveProgress * loveProgress) : (1 - Math.pow(-2 * loveProgress + 2, 2) / 2);
+                // Build a tinted sprite on an offscreen canvas (per-pixel tint)
+                const tintCanvas = document.createElement('canvas');
+                tintCanvas.width = Math.max(2, Math.ceil(targetW));
+                tintCanvas.height = Math.max(2, Math.ceil(targetH));
+                const tctx = tintCanvas.getContext('2d');
+                if (tctx) {
+                    // 1) Draw original sprite
+                    tctx.drawImage(img, 0, 0, targetW, targetH);
+                    // 2) Multiply a soft red elliptical gradient onto the head area
+                    const rx = 15 * scale, ry = 9 * scale;
+                    const cxLocal = 22 * scale, cyLocal = 15 * scale;
+                    tctx.save();
+                    tctx.translate(cxLocal, cyLocal);
+                    tctx.scale(rx, ry);
+                    const grad = tctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+                    grad.addColorStop(0, `rgba(255,59,59,${0.8 * ease})`);
+                    grad.addColorStop(1, `rgba(255,59,59,0)`);
+                    tctx.fillStyle = grad;
+                    tctx.globalCompositeOperation = 'multiply';
+                    tctx.beginPath();
+                    tctx.arc(0, 0, 1, 0, Math.PI * 2);
+                    tctx.fill();
+                    tctx.restore();
+                    // Optional slight additive pass to keep highlights
+                    tctx.save();
+                    tctx.translate(cxLocal, cyLocal);
+                    tctx.scale(rx, ry);
+                    const grad2 = tctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+                    grad2.addColorStop(0, `rgba(255,80,80,${0.25 * ease})`);
+                    grad2.addColorStop(1, `rgba(255,80,80,0)`);
+                    tctx.globalCompositeOperation = 'lighter';
+                    tctx.fillStyle = grad2;
+                    tctx.beginPath();
+                    tctx.arc(0, 0, 1, 0, Math.PI * 2);
+                    tctx.fill();
+                    tctx.restore();
+                    // 3) Draw tinted sprite instead of base
+                    ctx.drawImage(tintCanvas, -targetW / 2, -targetH / 2);
+                } else {
+                    // Fallback: draw original
+                    ctx.drawImage(img, -targetW / 2, -targetH / 2, targetW, targetH);
+                }
+
+                // Heart above head (vector)
+                const cx = -targetW / 2 + 22 * scale;
+                const floatY = -targetH / 2 - (8 * scale) - (4 * scale * (1 - ease));
+                ctx.save();
+                ctx.globalAlpha = 0.9 * ease;
+                ctx.translate(cx, floatY);
+                ctx.fillStyle = '#ff77aa';
+                const hs = 6 * Math.max(0.6, scale);
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.bezierCurveTo(-hs, -hs, -2 * hs, -0.2 * hs, 0, 1.2 * hs);
+                ctx.bezierCurveTo(2 * hs, -0.2 * hs, hs, -hs, 0, 0);
+                ctx.fill();
+                ctx.restore();
+            } else {
+                // Normal draw when no love tint
+                ctx.drawImage(img, -targetW / 2, -targetH / 2, targetW, targetH);
+            }
             ctx.restore();
             return true;
         }
@@ -1107,10 +1200,37 @@ app.registerExtension({
                     }
                     const p = sampleLengthToPoint(s);
                     const p2 = sampleLengthToPoint(s + 1);
+
+                    // Cute sprite-only love effect: random, brief, with cooldown
+                    let loveProgress = 0;
+                    if (otterSpritesEnabled && otterFX) {
+                        const key = `${(link?.id) ?? 'L'}:${i}`;
+                        let st = window.__starryOtterLoveStates[key];
+                        if (!st) {
+                            st = { activeUntil: 0, cooldownUntil: 0, startedAt: 0, duration: 900 };
+                            window.__starryOtterLoveStates[key] = st;
+                        }
+                        if (nowMs < st.activeUntil) {
+                            const elapsed = nowMs - st.startedAt;
+                            loveProgress = Math.max(0, Math.min(1, elapsed / st.duration));
+                        } else {
+                            // possibly trigger
+                            if (nowMs > st.cooldownUntil) {
+                                // Low probability per frame
+                                if (Math.random() < 0.0025) {
+                                    st.startedAt = nowMs;
+                                    st.duration = 900 + Math.random() * 400; // 0.9-1.3s
+                                    st.activeUntil = st.startedAt + st.duration;
+                                    st.cooldownUntil = st.activeUntil + (8000 + Math.random() * 7000); // 8-15s
+                                    loveProgress = 0.01;
+                                }
+                            }
+                        }
+                    }
                     // Try sprite first if enabled and ready
                     let drawn = false;
                     if (otterSpritesEnabled && spriteCache.ready) {
-                        drawn = drawOtterSprite(ctx, p, p2, otterScale, otterFX, otterSpriteFPS);
+                        drawn = drawOtterSprite(ctx, p, p2, otterScale, otterFX, otterSpriteFPS, loveProgress);
                     }
                     if (!drawn) {
                         drawCuteOtter(ctx, p, p2, otterScale, otterFX);
