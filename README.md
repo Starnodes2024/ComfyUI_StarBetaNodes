@@ -31,6 +31,65 @@ Welcome to **Star Beta Nodes** – a staging ground for experimental custom node
   - Inputs (required): `source_image`, `filtered_image`, `strength`
   - Inputs (optional): `depth_image` or `mask` (one required), `invert_mask`, `show_preview`, `blur_mask_px`
 
+- **⭐ Star Qwen Image Edit Inputs** (`StarQwenImageEditInputs`)
+  - Prepares multiple input images for Qwen editing models by intelligently stitching them into a single canvas
+  - Supports up to 4 input images arranged in various grid layouts
+  - Automatically handles aspect ratio optimization and resizing
+  - Outputs: stitched `IMAGE`, `LATENT`, and dimensions
+  - Inputs: `image1` (required), `qwen_resolution`, `batch_size`, `custom_width/height`, `image2-4` (optional)
+
+- **⭐ Star Qwen / WAN Ratio** (`StarQwenWanRatio`)
+  - Unified ratio selector supporting both Qwen and WAN video models
+  - Automatically calculates optimal dimensions for target pixel counts
+  - Can match image aspect ratio automatically
+  - Supports HD (1280x720) and Full HD (1920x1080) for WAN models
+  - Outputs: `LATENT`, `width`, `height`
+  - Inputs: `model` (Qwen/Wan HD/Wan Full HD), ratio selections, `use_nearest_image_ratio`, `image` (optional)
+
+### ⭐StarNodes/Image Generation
+
+- **⭐ Star Nano Banana (Gemini Image Gen)** (`StarNanoBanana`)
+  - Advanced image generation using Google's Gemini 2.5 Flash model
+  - Supports both generation and editing with up to 5 input images
+  - 30+ ready-made prompt templates optimized for image editing tasks
+  - Flexible aspect ratios (1:1, 16:9, 9:16, 4:3, 3:4) and megapixel sizes (1-15 MP)
+  - Outputs: generated/edited `IMAGE` and final `prompt` string
+  - Inputs: `prompt`, `model`, `ratio`, `megapixels`, `prompt_template`, `image1-5` (optional)
+
+### ⭐StarNodes/Prompts
+
+- **⭐ Star Image Edit for Qwen/Kontext** (`StarImageEditQwenKontext`)
+  - Dynamic prompt builder for Qwen and Kontext image editing models
+  - Loads customizable templates from `editprompts.json`
+  - Supports parameter interpolation with fillable fields
+  - Outputs: interpolated `prompt` and `params_hint`
+  - Inputs: `model`, `task`, plus various parameter fields (subject, color, style, etc.)
+
+- **⭐ Star Ollama Sysprompter (JC)** (`StarOllamaSysprompterJC`)
+  - Builds structured prompts for Ollama-style image generation
+  - Supports multiple art styles loaded from `styles.json`
+  - Configurable token limits and custom style options
+  - Outputs: `system_prompt`, `detail_prompt`, `style_name`
+  - Inputs: `max_tokens`, `style`, `own_style`, `additional_system_prompt`, `fit_composition_to_style`
+
+### ⭐StarNodes/Conditioning
+
+- **⭐ Star Qwen Edit Encoder** (`StarQwenEditEncoder`)
+  - Advanced CLIP text encoder optimized for Qwen image editing models
+  - Supports reference latents and multi-image conditioning
+  - Performance optimizations with caching and timing controls
+  - Outputs: `CONDITIONING` tensor
+  - Inputs: `clip`, `prompt`, `vae`, `image`, `reference_latent`, plus various quality/speed controls
+
+### ⭐StarNodes/IO
+
+- **⭐ Star Save Folder String** (`StarSaveFolderString`)
+  - Flexible path builder for organized file saving
+  - Supports preset folders, date-based organization, and custom naming
+  - Cross-platform path compatibility
+  - Outputs: formatted `path` string
+  - Inputs: `preset_folder`, `date_folder`, `custom_folder/subfolder`, `filename`, plus various formatting options
+
 ## 📦 Installation
 
 ### Method 1: Git Clone (Recommended)
@@ -55,23 +114,34 @@ Welcome to **Star Beta Nodes** – a staging ground for experimental custom node
 
 ## 🎯 Usage Examples
 
-### Star Qwen Image Ratio
-- Select a ratio from the dropdown
-- Connect the `latent` output to SD3.5/SD3 workflows expecting a LATENT dict (`{"samples": ...}`)
-- Use the `width` and `height` outputs to configure downstream nodes
-- Increase `batch_size` to generate batched latents in one step
+### Star Qwen Image Edit Inputs
+- Connect up to 4 input images to intelligently stitch them for Qwen editing models
+- Select resolution from Qwen-supported options or use "Use Best Ratio from Image 1"
+- The node automatically handles aspect ratio optimization and creates appropriate latents
 
-### Star Apply Overlay (Depth)
-- Provide `source_image` and a `filtered_image` to overlay
-- Connect either a `mask` or a `depth_image` (greyscale or RGB will be converted)
-- Optionally toggle `invert_mask`, enable `show_preview` to save a small mask preview, and adjust `blur_mask_px` for smoother transitions
+### Star Nano Banana (Gemini)
+- Choose from 30+ editing templates like "Style Transfer", "Color Enhancement", "Background Change"
+- Select aspect ratio and megapixel size, then connect input images for editing
+- Use "Use Own Prompt" for custom prompts or pick from the editing-focused templates
+
+### Star Qwen Edit Encoder
+- Connect your CLIP model and enter prompts optimized for Qwen editing
+- Optionally provide reference images and latents for enhanced conditioning
+- Enable caching and timing controls for performance optimization
+
+### Star Save Folder String
+- Set up organized folder structures with date-based organization
+- Choose from preset folder names or create custom paths
+- Enable timestamps and custom separators for unique filenames
 
 ## 🔄 Node Categories
 
-All nodes are organized under:
-- **⭐StarNodes/Image And Latent** – Image/latent utilities
-
-Note: Previous beta nodes (image loaders, video frame tools, panorama saver, etc.) have been migrated to the main repository: `Starnodes2024/ComfyUI_StarNodes`.
+All nodes are organized under these StarNodes categories:
+- **⭐StarNodes/Image And Latent** – Image processing, latent generation, and dimension utilities (4 nodes)
+- **⭐StarNodes/Image Generation** – AI-powered image generation and editing (1 node)
+- **⭐StarNodes/Prompts** – Dynamic prompt building and template management (2 nodes)
+- **⭐StarNodes/Conditioning** – Advanced text encoding and conditioning (1 node)
+- **⭐StarNodes/IO** – File and path management utilities (1 node)
 
 ## 🐛 Beta Testing & Feedback
 
@@ -87,6 +157,8 @@ As this is a beta testing repository, your feedback is crucial! Please:
 - PyTorch (bundled with ComfyUI env)
 - PIL/Pillow (for preview saving in overlay node)
 - Standard ComfyUI dependencies
+- **External Dependencies**: See `requirements.txt` for additional packages needed:
+  - `google-generativeai>=0.8.3` (for Star Nano Banana node)
 
 ## 🤝 Contributing
 
