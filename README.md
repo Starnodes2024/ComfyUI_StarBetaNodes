@@ -90,6 +90,14 @@ Welcome to **Star Beta Nodes** – a staging ground for experimental custom node
   - Outputs: formatted `path` string
   - Inputs: `preset_folder`, `date_folder`, `custom_folder/subfolder`, `filename`, plus various formatting options
 
+- **⭐ Star Duplicate Model Finder** (`StarDuplicateModelFinder`)
+  - Scans ComfyUI models directory for duplicate files using SHA256 hashing
+  - Supports scanning all models or specific subfolders
+  - Outputs detailed report to file and ComfyUI string
+  - Helps identify and manage duplicate model files
+  - Outputs: `report` string with findings
+  - Inputs: `folder` selection (All Models or specific subfolder)
+
 ## 📦 Installation
 
 ### Method 1: Git Clone (Recommended)
@@ -141,7 +149,7 @@ All nodes are organized under these StarNodes categories:
 - **⭐StarNodes/Image Generation** – AI-powered image generation and editing (1 node)
 - **⭐StarNodes/Prompts** – Dynamic prompt building and template management (2 nodes)
 - **⭐StarNodes/Conditioning** – Advanced text encoding and conditioning (1 node)
-- **⭐StarNodes/IO** – File and path management utilities (1 node)
+- **⭐StarNodes/IO** – File and path management utilities (2 nodes)
 
 ## 🐛 Beta Testing & Feedback
 
