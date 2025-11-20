@@ -46,6 +46,15 @@ Welcome to **Star Beta Nodes** – a staging ground for experimental custom node
   - Outputs: `LATENT`, `width`, `height`
   - Inputs: `model` (Qwen/Wan HD/Wan Full HD), ratio selections, `use_nearest_image_ratio`, `image` (optional)
 
+- **⭐ Star Simple Filters** (`StarSimpleFilters`)
+  - Comprehensive image adjustment node with basic filters and advanced color matching
+  - Features: Sharpen, Blur, Saturation, Contrast, Brightness, Temperature
+  - Includes advanced Color Match functionality (MKL, Reinhard, MVGD, etc.) to transfer color palette from a reference image
+  - All effects can be blended with the original using `filter_strength`
+  - Outputs: filtered `IMAGE`
+  - Inputs: `image` (required), `sharpen`, `blur`, `saturation`, `contrast`, `brightness`, `temperature`, `filter_strength`, `color_match_method`
+  - Inputs (optional): `color_match_image` (required if color match method is selected)
+
 ### ⭐StarNodes/Image Generation
 
 - **⭐ Star Nano Banana (Gemini Image Gen)** (`StarNanoBanana`)
